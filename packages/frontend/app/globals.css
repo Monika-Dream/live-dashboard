@@ -57,13 +57,50 @@ body.night-mode .separator-dashed {
   body.night-mode .separator-dashed {
     transition: none !important;
   }
+  body.night-mode .sakura-petal::before {
+    animation: none !important;
+    opacity: 0.3;
+    box-shadow: 0 0 6px 2px rgba(201, 160, 220, 0.3);
+  }
 }
 
-/* Sakura petals dim in night mode */
+/* Sakura petals glow softly in night mode */
 body.night-mode .sakura-petal::before {
-  opacity: 0.08;
-  background: var(--color-primary);
+  opacity: 0.35;
+  background: #c9a0dc;
+  border-radius: 50%;
+  box-shadow:
+    0 0 6px 2px rgba(201, 160, 220, 0.4),
+    0 0 14px 4px rgba(201, 160, 220, 0.15);
+  animation: petal-glow 4s ease-in-out infinite;
 }
+
+@keyframes petal-glow {
+  0%, 100% { opacity: 0.25; box-shadow: 0 0 5px 1px rgba(201, 160, 220, 0.3), 0 0 10px 3px rgba(201, 160, 220, 0.1); }
+  50%      { opacity: 0.45; box-shadow: 0 0 8px 3px rgba(201, 160, 220, 0.5), 0 0 18px 6px rgba(201, 160, 220, 0.2); }
+}
+
+/* Stagger the glow rhythm so petals breathe independently */
+body.night-mode .sakura-petal-0::before  { animation-delay: 0s; }
+body.night-mode .sakura-petal-1::before  { animation-delay: -1.2s; }
+body.night-mode .sakura-petal-2::before  { animation-delay: -3.1s; }
+body.night-mode .sakura-petal-3::before  { animation-delay: -0.7s; }
+body.night-mode .sakura-petal-4::before  { animation-delay: -2.5s; }
+body.night-mode .sakura-petal-5::before  { animation-delay: -1.8s; }
+body.night-mode .sakura-petal-6::before  { animation-delay: -3.6s; }
+body.night-mode .sakura-petal-7::before  { animation-delay: -0.3s; }
+body.night-mode .sakura-petal-8::before  { animation-delay: -2.9s; }
+body.night-mode .sakura-petal-9::before  { animation-delay: -1.5s; }
+body.night-mode .sakura-petal-10::before { animation-delay: -3.3s; }
+body.night-mode .sakura-petal-11::before { animation-delay: -0.9s; }
+body.night-mode .sakura-petal-12::before { animation-delay: -2.2s; }
+body.night-mode .sakura-petal-13::before { animation-delay: -1.1s; }
+body.night-mode .sakura-petal-14::before { animation-delay: -3.8s; }
+body.night-mode .sakura-petal-15::before { animation-delay: -0.5s; }
+body.night-mode .sakura-petal-16::before { animation-delay: -2.7s; }
+body.night-mode .sakura-petal-17::before { animation-delay: -1.6s; }
+body.night-mode .sakura-petal-18::before { animation-delay: -3.4s; }
+body.night-mode .sakura-petal-19::before { animation-delay: -0.8s; }
 
 /* Card decorative corners softer */
 body.night-mode .card-decorated:hover {
