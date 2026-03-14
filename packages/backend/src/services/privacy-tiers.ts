@@ -24,21 +24,31 @@ registerTier("show", [
   "YouTube", "哔哩哔哩", "bilibili", "Netflix",
   "爱奇艺", "优酷", "腾讯视频",
   "VLC", "PotPlayer", "mpv",
+  "Twitch", "Disney+", "芒果TV", "斗鱼", "虎牙",
+  "Prime Video", "HBO",
 ]);
 
 // SHOW — music
 registerTier("show", [
   "Spotify", "网易云音乐", "QQ音乐", "酷狗音乐",
   "Apple Music", "foobar2000",
+  "YouTube Music", "酷我音乐", "Amazon Music", "AIMP",
+  "Audacity",
 ]);
 
 // SHOW — gaming & galgame
 registerTier("show", [
   "Steam", "Epic Games",
   "Genshin Impact", "原神",
-  "League of Legends",
+  "League of Legends", "英雄联盟",
   "Honkai: Star Rail", "崩坏：星穹铁道",
   "Minecraft",
+  "王者荣耀", "和平精英",
+  "VALORANT", "Counter-Strike 2", "CSGO",
+  "Overwatch", "Apex Legends",
+  "Elden Ring", "Zelda", "Roblox",
+  "GOG Galaxy", "Xbox", "EA App", "Ubisoft Connect", "Battle.net",
+  "明日方舟", "Arknights", "绝区零", "鸣潮",
   // Galgame titles
   "いろとりどりのセカイ", "五彩斑斓的世界", "FAVORITE",
   "ものべの", "CLANNAD", "Fate/stay night",
@@ -59,12 +69,30 @@ registerTier("show", [
   "Cursor", "Sublime Text",
   "Google Antigravity", "Windsurf", "Zed",
   "CLion", "RustRover", "JetBrains Fleet", "HBuilderX",
+  "Vim", "Neovim", "Emacs", "Notepad++",
 ]);
 
 // SHOW — dev tools (show project/container/repo info)
 registerTier("show", [
   "Docker Desktop", "GitHub Desktop",
   "Postman", "DBeaver", "Navicat",
+  "Insomnia", "Wireshark", "Fiddler", "Charles Proxy",
+  "GitKraken", "Sourcetree",
+]);
+
+// SHOW — design tools
+registerTier("show", [
+  "Figma", "Sketch",
+  "Photoshop", "Adobe Photoshop",
+  "Illustrator", "Adobe Illustrator",
+  "Premiere Pro", "Adobe Premiere Pro",
+  "After Effects", "Adobe After Effects",
+  "Blender", "Cinema 4D", "GIMP", "Canva", "Adobe XD",
+  "DaVinci Resolve", "剪映", "CapCut",
+  "Lightroom", "Adobe Lightroom",
+  "InDesign", "Adobe InDesign",
+  "Affinity Photo", "Affinity Designer", "Pixelmator",
+  "Paint.NET", "SAI", "Clip Studio Paint", "MediBang", "Krita",
 ]);
 
 // SHOW — productivity / documents
@@ -73,18 +101,35 @@ registerTier("show", [
   "Excel", "Microsoft Excel",
   "PowerPoint", "Microsoft PowerPoint",
   "OneNote", "Notion", "Obsidian", "Typora",
+  "WPS Office", "WPS",
+  "Google Docs", "Google Sheets", "Google Slides",
+  "Logseq",
+]);
+
+// SHOW — reading
+registerTier("show", [
+  "Kindle", "微信读书", "多看阅读", "Apple Books", "Calibre",
 ]);
 
 // BROWSER
 registerTier("browser", [
   "Google Chrome", "Chrome", "Microsoft Edge",
   "Firefox", "Safari", "Opera", "Arc",
+  "Brave", "Vivaldi", "Opera GX",
 ]);
 
 // HIDE — messaging
 registerTier("hide", [
   "Telegram", "QQ", "TIM", "微信", "WeChat",
   "Discord", "Line", "企业微信", "钉钉",
+  "Skype", "飞书", "Lark", "Slack",
+]);
+
+// HIDE — AI assistants (conversation content is private)
+registerTier("hide", [
+  "ChatGPT", "Claude", "Gemini", "Copilot", "Microsoft Copilot",
+  "通义千问", "文心一言", "Kimi", "豆包", "DeepSeek",
+  "Poe", "Perplexity", "HuggingChat", "Ollama", "LM Studio",
 ]);
 
 // HIDE — email
@@ -92,26 +137,25 @@ registerTier("hide", [
   "Outlook", "邮件", "Mail",
 ]);
 
-// HIDE — finance
-registerTier("hide", [
-  "支付宝",
-]);
-
 // HIDE — system & utility
 registerTier("hide", [
   "文件资源管理器", "File Explorer", "文件管理", "Finder", "Total Commander",
   "Windows Terminal", "终端", "Terminal", "PowerShell",
   "命令提示符", "Command Prompt", "iTerm2", "Termux",
+  "Alacritty", "Warp", "Kitty",
   "任务管理器", "Task Manager",
   "系统设置", "设置", "Settings", "小米设置",
   "搜索", "输入法", "画图",
   "UWP 应用", "系统 Shell", "系统界面",
   "桌面", "记事本",
+  "控制面板", "Control Panel",
+  "天气", "录音机", "扫一扫", "便签",
 ]);
 
 // HIDE — proxy
 registerTier("hide", [
-  "Mihomo Party", "Clash",
+  "Mihomo Party", "Clash", "Clash Verge",
+  "v2rayN", "Shadowrocket", "Quantumult", "Surge", "NekoBox",
 ]);
 
 // HIDE — shopping / services (no need to show window_title)
@@ -119,6 +163,8 @@ registerTier("hide", [
   "淘宝", "京东", "拼多多", "唯品会",
   "美团", "饿了么", "大众点评", "小米应用商店",
   "铁路12306", "携程", "百度地图", "高德地图",
+  "闲鱼", "Google Play", "App Store",
+  "Google Maps", "滴滴出行", "飞猪",
 ]);
 
 // HIDE — social (window_title may contain private DMs)
@@ -126,7 +172,21 @@ registerTier("hide", [
   "Twitter", "X", "微博", "小红书",
   "抖音", "TikTok", "知乎", "今日头条",
   "Reddit", "GitHub", "酷安", "百度",
+  "Instagram", "Facebook", "Pinterest", "Threads",
+  "快手", "B站漫画",
   "相机", "相册", "计算器", "日历", "时钟", "手机管家",
+]);
+
+// HIDE — download / cloud / remote / meeting
+registerTier("hide", [
+  "qBittorrent", "µTorrent", "BitComet", "迅雷",
+  "IDM", "Internet Download Manager", "Motrix", "Free Download Manager",
+  "Google Drive", "OneDrive", "百度网盘", "阿里云盘", "Dropbox",
+  "TeamViewer", "ToDesk", "向日葵",
+  "腾讯会议", "Zoom", "Microsoft Teams", "Google Meet",
+  "钉钉会议", "飞书会议",
+  "Trello", "Todoist", "印象笔记", "Evernote",
+  "支付宝",
 ]);
 
 // ── Public API ──
@@ -359,7 +419,8 @@ function extractDocTitle(title: string): string {
 // ── App category detection for title processing ──
 
 const musicApps = new Set(
-  ["spotify", "网易云音乐", "qq音乐", "酷狗音乐", "apple music", "foobar2000"]
+  ["spotify", "网易云音乐", "qq音乐", "酷狗音乐", "apple music", "foobar2000",
+   "youtube music", "酷我音乐", "amazon music", "aimp"]
 );
 const ideApps = new Set([
   "vs code", "visual studio code", "visual studio",
@@ -368,18 +429,38 @@ const ideApps = new Set([
   "cursor", "sublime text",
   "google antigravity", "windsurf", "zed",
   "clion", "rustrover", "jetbrains fleet", "hbuilderx",
+  "vim", "neovim", "emacs", "notepad++",
   // Dev tools (title format similar: "project - App Name")
   "docker desktop", "github desktop", "postman", "dbeaver", "navicat",
+  "insomnia", "wireshark", "fiddler", "charles proxy",
+  "gitkraken", "sourcetree",
 ]);
 const videoApps = new Set([
   "youtube", "哔哩哔哩", "bilibili", "netflix",
   "爱奇艺", "优酷", "腾讯视频",
   "vlc", "potplayer", "mpv",
+  "twitch", "disney+", "芒果tv", "斗鱼", "虎牙",
+  "prime video", "hbo",
 ]);
 const docApps = new Set([
   "word", "microsoft word", "excel", "microsoft excel",
   "powerpoint", "microsoft powerpoint",
   "onenote", "notion", "obsidian", "typora",
+  "wps office", "wps", "google docs", "google sheets", "google slides",
+  "logseq",
+]);
+const designApps = new Set([
+  "figma", "sketch",
+  "photoshop", "adobe photoshop",
+  "illustrator", "adobe illustrator",
+  "premiere pro", "adobe premiere pro",
+  "after effects", "adobe after effects",
+  "blender", "cinema 4d", "gimp", "canva", "adobe xd",
+  "davinci resolve", "剪映", "capcut",
+  "lightroom", "adobe lightroom",
+  "indesign", "adobe indesign",
+  "affinity photo", "affinity designer", "pixelmator",
+  "paint.net", "sai", "clip studio paint", "medibang", "krita",
 ]);
 
 // ── Main display_title processor ──
@@ -426,6 +507,9 @@ export function processDisplayTitle(appName: string, windowTitle: string): strin
     return stripAppSuffix(windowTitle).trim();
   }
   if (docApps.has(lowerApp)) {
+    return extractDocTitle(windowTitle);
+  }
+  if (designApps.has(lowerApp)) {
     return extractDocTitle(windowTitle);
   }
 
