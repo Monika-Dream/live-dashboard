@@ -10,8 +10,8 @@
 
 | 分支 | 风格 | 说明 |
 |------|------|------|
-| **`main`** | 经典和风 | 暖粉色系、Quicksand/Zen Maru 字体、柔和樱花花瓣 |
-| **`redesign/magical-girl`** | 魔法少女 | 薰衣草紫/薄荷绿/蜜桃橘、Dela Gothic One/M PLUS Rounded 1c 字体、星星+爱心粒子、萤火虫夜间模式 |
+| **`main`** | 经典和风 | 暖粉色系、Quicksand/Zen Maru 字体、猫耳气泡框、樱花花瓣动画 |
+| **`redesign/magical-girl`** | Monika 的房间 | 纸张米色/红梅粉/抹茶绿、Zen Kaku Gothic New + Space Mono 字体、大面积状态区、手绘虚线装饰、无卡片极简单栏布局 |
 
 ```bash
 # 使用经典主题（默认）
@@ -23,18 +23,29 @@ git clone -b redesign/magical-girl https://github.com/Monika-Dream/live-dashboar
 
 两个分支的后端、Agent、部署配置完全一致，仅前端 UI 不同。
 
+## 当前分支：Monika 的房间
+
+这个分支采用「Monika 的房间」设计概念——页面不是传统仪表盘，而是一个安静的小空间。
+
+**设计思路**：
+- 大面积状态展示区取代小气泡框，占据页面视觉中心
+- 去掉卡片嵌套，设备信息用简洁的单行展示
+- 纸张质感配色（米色底 `#faf6f0` + 红梅 `#e87a90` + 抹茶 `#86a697`）
+- 夜间模式自动切换为深靛蓝（`#0f0e17`）+ 夜樱粉/月光蓝
+- 手绘风虚线分隔、角落 ✦ 装饰，保持大量留白
+- 时间线用带色点的网格列表，干净直接
+
 ## 截图
 
 > TODO: 添加截图
 
 ## 功能特性
 
-- **VN 对话框**：猫耳装饰的视觉小说气泡框，展示当前活动
+- **大面积状态区**：页面核心是当前状态展示，使用大号颜文字和活动描述
 - **戏剧化描述**：以保护隐私的趣味文案替代原始应用/窗口信息（如"正在用VS Code疯狂写bug喵~"）
 - **富展示标题**：隐私允许时展示你正在看/听/写什么（如"正在YouTube看「Minecraft Tutorial」喵~"）
 - **三级隐私系统**：SHOW / BROWSER / HIDE 三级窗口标题分类
-- **樱花花瓣动画**：20 片 CSS 动画花瓣，自然飘摇效果，尊重 `prefers-reduced-motion` 设置
-- **夜间模式**：当所有设备离线时（Monika 不在电脑前），页面自动切换为深紫色暗夜主题，樱花花瓣变为微弱发光的萤火效果，带有交错的呼吸动画；任一设备上线后自动恢复日间模式，过渡动画 1.2 秒
+- **夜间模式**：全设备离线时自动切换为深靛蓝暗色主题，上线后平滑恢复
 - **时间线视图**：按日聚合的时间线，带时长计算和日期选择器
 - **时区感知**：前端发送时区偏移，后端正确查询本地日期
 - **多设备支持**：同时支持多台设备（Windows、Android）
@@ -357,28 +368,25 @@ Dockerfile 使用多阶段构建：第一阶段构建 Next.js 前端，第二阶
 编辑 `packages/frontend/app/globals.css` 中的 CSS 变量：
 
 ```css
-@theme {
-  --color-cream: #FFF8E7;        /* 页面背景 */
-  --color-sakura-bg: #FFF0F3;    /* 樱花色调 */
-  --color-card: #FFFDF7;         /* 卡片背景 */
-  --color-border: #E8D5C4;       /* 卡片边框 */
-  --color-primary: #E8A0BF;      /* 主色调粉色（猫耳、花瓣、装饰） */
-  --color-secondary: #88C9C9;    /* 辅助色青色 */
-  --color-accent: #E8B86D;       /* 点缀色金色 */
+:root {
+  --color-bg: #faf6f0;            /* 页面背景（纸张米色） */
+  --color-primary: #e87a90;       /* 主色（红梅） */
+  --color-secondary: #86a697;     /* 副色（抹茶绿） */
+  --color-accent: #f5c63c;        /* 点缀（蜂蜜金） */
+  --color-text: #3c3226;          /* 正文文字（墨褐） */
+  --color-text-dim: ...;          /* 辅助文字 */
 }
 ```
 
-夜间模式颜色在 `body.night-mode` 中覆盖，默认为深紫色系：
+夜间模式颜色在 `body.night-mode` 中覆盖：
 
 ```css
 body.night-mode {
-  --color-cream: #1a1a2e;        /* 深蓝紫背景 */
-  --color-sakura-bg: #1e1e30;    /* 深紫樱花色调 */
-  --color-card: #242440;         /* 暗紫卡片背景 */
-  --color-border: #3a3a5c;       /* 柔和紫灰边框 */
-  --color-primary: #9b7bb8;      /* 淡紫主色调 */
-  --color-secondary: #5a8a8a;    /* 暗青辅助色 */
-  --color-accent: #b8944d;       /* 暖金点缀色 */
+  --color-bg: #0f0e17;            /* 深靛蓝背景 */
+  --color-primary: #ff8ba7;       /* 夜樱粉 */
+  --color-secondary: #7eb8c9;     /* 月光蓝 */
+  --color-accent: #f2d398;        /* 星光金 */
+  --color-text: #e0dcd0;          /* 柔光白 */
 }
 ```
 

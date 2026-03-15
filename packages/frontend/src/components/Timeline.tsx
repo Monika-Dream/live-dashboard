@@ -1,16 +1,15 @@
 import type { TimelineSegment } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 
-// Palette that works with both day and night mode
-const APP_COLORS = [
-  "#c084fc", "#67d6aa", "#fca5a5", "#fdb88a", "#93c5fd",
-  "#a78bfa", "#6ee7b7", "#fda4af", "#fdba74", "#7dd3fc",
+const DOT_COLORS = [
+  "#e87a90", "#86a697", "#f5c63c", "#c4886d", "#7eb8c9",
+  "#d4a373", "#a0937d", "#b5838d", "#8fbc8f", "#c9a96e",
 ];
 
-function getAppColor(appName: string, colorMap: Map<string, string>): string {
+function getDotColor(appName: string, colorMap: Map<string, string>): string {
   const existing = colorMap.get(appName);
   if (existing) return existing;
-  const color = APP_COLORS[colorMap.size % APP_COLORS.length]!;
+  const color = DOT_COLORS[colorMap.size % DOT_COLORS.length]!;
   colorMap.set(appName, color);
   return color;
 }
@@ -20,7 +19,7 @@ function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return m > 0 ? `${h}h${m}m` : `${h}h`;
 }
 
 interface AggregatedApp {
@@ -42,14 +41,13 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
 
   if (segments.length === 0) {
     return (
-      <div className="text-center py-16 text-[var(--color-text-muted)]">
-        <p className="text-3xl mb-2 leading-none">(=^-ω-^=)</p>
-        <p className="text-sm font-[var(--font-jp)]">今天还没有活动记录呢~</p>
+      <div className="tl-empty">
+        <p className="text-2xl mb-2">(·_·)</p>
+        <p className="text-sm">今天还没有记录</p>
       </div>
     );
   }
 
-  // Group by device
   const byDevice = new Map<string, { name: string; segs: TimelineSegment[] }>();
   for (const seg of segments) {
     let entry = byDevice.get(seg.device_id);
@@ -61,7 +59,7 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 animate-in" style={{ animationDelay: "0.15s" }}>
       {Array.from(byDevice.entries()).map(([deviceId, { name, segs }]) => {
         const appMap = new Map<string, AggregatedApp>();
         for (const seg of segs) {
@@ -103,54 +101,32 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
         });
 
         return (
-          <div key={deviceId} className="animate-fade-up" style={{ animationDelay: "0.2s" }}>
-            <h3 className="text-[11px] font-bold mb-3 text-[var(--color-text-muted)] uppercase tracking-widest">
-              {name}
-            </h3>
-
-            <div className="max-h-[420px] overflow-y-auto pr-1 timeline-scroll">
-              <div className="space-y-1.5">
-                {sorted.map((app) => {
-                  const color = getAppColor(app.appName, colorMap);
-                  return (
-                    <div
-                      key={app.appName}
-                      className={`timeline-bar flex items-center ${app.isCurrent ? "timeline-active" : ""}`}
-                    >
-                      {/* Left: indicator */}
-                      <div className="flex-shrink-0 w-14 px-2 py-2.5 flex items-center justify-center">
-                        {app.isCurrent ? (
-                          <span className="text-[10px] font-bold text-[var(--color-primary)] current-badge">
-                            ▸ now
-                          </span>
-                        ) : (
-                          <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}40` }}
-                          />
-                        )}
-                      </div>
-
-                      {/* Center: description */}
-                      <div
-                        className="flex-1 px-3 py-2.5 min-w-0"
-                        style={{ backgroundColor: app.isCurrent ? `${color}25` : `${color}10` }}
-                      >
-                        <span className="text-xs font-medium truncate block font-[var(--font-jp)]">
-                          {getAppDescription(app.appName, app.displayTitle)}
-                        </span>
-                      </div>
-
-                      {/* Right: duration */}
-                      <div className="flex-shrink-0 w-16 px-2 py-2.5 text-right">
-                        <span className="text-[10px] font-bold text-[var(--color-peach)]">
-                          {formatDuration(app.totalMinutes)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          <div key={deviceId}>
+            <p className="section-label mb-2">{name}</p>
+            <div className="tl-scroll">
+              {sorted.map((app) => {
+                const color = getDotColor(app.appName, colorMap);
+                return (
+                  <div
+                    key={app.appName}
+                    className={`tl-item ${app.isCurrent ? "current" : ""}`}
+                  >
+                    <span
+                      className={`tl-dot ${app.isCurrent ? "current" : ""}`}
+                      style={app.isCurrent ? undefined : { backgroundColor: color }}
+                    />
+                    <span className="tl-desc">
+                      {app.isCurrent && (
+                        <span className="text-[var(--color-primary)] font-bold mr-1">▸</span>
+                      )}
+                      {getAppDescription(app.appName, app.displayTitle)}
+                    </span>
+                    <span className="tl-duration">
+                      {formatDuration(app.totalMinutes)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
