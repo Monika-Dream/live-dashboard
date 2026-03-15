@@ -11,14 +11,14 @@
 | 分支 | 风格 | 说明 |
 |------|------|------|
 | **`main`** | 经典和风 | 暖粉色系、Quicksand/Zen Maru 字体、猫耳气泡框、樱花花瓣动画 |
-| **`redesign/magical-girl`** | Monika 的房间 | 纸张米色/红梅粉/抹茶绿、Zen Kaku Gothic New + Space Mono 字体、大面积状态区、手绘虚线装饰、无卡片极简单栏布局 |
+| **`redesign/monikas-room`** | Monika 的房间 | 纸张米色/红梅粉/抹茶绿、Zen Kaku Gothic New + Space Mono 字体、大面积状态区、手绘虚线装饰、无卡片极简单栏布局 |
 
 ```bash
 # 使用经典主题（默认）
 git clone https://github.com/Monika-Dream/live-dashboard.git
 
-# 使用魔法少女主题
-git clone -b redesign/magical-girl https://github.com/Monika-Dream/live-dashboard.git
+# 使用 Monika 的房间主题
+git clone -b redesign/monikas-room https://github.com/Monika-Dream/live-dashboard.git
 ```
 
 两个分支的后端、Agent、部署配置完全一致，仅前端 UI 不同。
