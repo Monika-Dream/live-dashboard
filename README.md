@@ -4,6 +4,25 @@
 
 特色功能：带猫耳装饰的视觉小说风格对话框、中文戏剧化活动描述（如"正在B站划水摸鱼喵~"）、飘落的樱花花瓣动画，以及三级隐私系统保护敏感窗口标题。
 
+## 主题分支
+
+本项目提供两个前端主题，可按喜好选择：
+
+| 分支 | 风格 | 说明 |
+|------|------|------|
+| **`main`** | 经典和风 | 暖粉色系、Quicksand/Zen Maru 字体、柔和樱花花瓣 |
+| **`redesign/magical-girl`** | 魔法少女 | 薰衣草紫/薄荷绿/蜜桃橘、Dela Gothic One/M PLUS Rounded 1c 字体、星星+爱心粒子、萤火虫夜间模式 |
+
+```bash
+# 使用经典主题（默认）
+git clone https://github.com/Monika-Dream/live-dashboard.git
+
+# 使用魔法少女主题
+git clone -b redesign/magical-girl https://github.com/Monika-Dream/live-dashboard.git
+```
+
+两个分支的后端、Agent、部署配置完全一致，仅前端 UI 不同。
+
 ## 截图
 
 > TODO: 添加截图
