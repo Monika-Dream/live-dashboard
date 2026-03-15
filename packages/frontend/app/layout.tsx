@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,19 +10,19 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <html lang="zh-CN">
       <body className="min-h-screen bg-[var(--color-cream)] relative overflow-x-hidden">
-        {/* Sakura petal layer */}
+        {/* Particle layer */}
         <div className="sakura-container" aria-hidden="true">
           {Array.from({ length: 20 }, (_, i) => (
             <div key={i} className={`sakura-petal sakura-petal-${i}`} />
           ))}
         </div>
 
-        <main className="relative z-10 max-w-4xl mx-auto px-4 py-8">
+        <main className="relative z-10 max-w-3xl mx-auto px-5 py-10">
           {children}
         </main>
       </body>

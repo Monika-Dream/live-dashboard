@@ -6,9 +6,9 @@ const platformIcons: Record<string, string> = {
 };
 
 function timeAgo(isoStr: string): string {
-  if (!isoStr) return "unknown";
+  if (!isoStr) return "";
   const ts = new Date(isoStr).getTime();
-  if (isNaN(ts)) return "unknown";
+  if (isNaN(ts)) return "";
   const diff = Date.now() - ts;
   if (diff < 0) return "just now";
   const mins = Math.floor(diff / 60000);
@@ -26,23 +26,31 @@ export default function DeviceCard({ device }: { device: DeviceState }) {
   const hasBattery = battery && typeof battery.battery_percent === "number";
 
   return (
-    <div className="card-decorated rounded-md px-3 py-2.5 flex items-center gap-2.5">
-      <span className="text-base" aria-hidden="true">{icon}</span>
+    <div className={`card-decorated px-3.5 py-3 flex items-center gap-3 ${isOnline ? "" : "opacity-50"}`}>
+      <span className="text-lg flex-shrink-0" aria-hidden="true">{icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold truncate">{device.device_name}</span>
+          <span className="text-xs font-bold truncate">{device.device_name}</span>
+          {isOnline && (
+            <span
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[var(--color-secondary)]"
+              style={isOnline ? { boxShadow: "0 0 6px var(--color-secondary)" } : undefined}
+            />
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
           {isOnline && hasBattery && (
-            <span className="text-[10px] text-[var(--color-text-muted)] flex-shrink-0">
+            <span className="text-[10px] text-[var(--color-text-muted)]">
               {battery.battery_charging ? "\u26A1" : "\u{1F50B}"}{battery.battery_percent}%
             </span>
           )}
+          <span className="text-[10px] text-[var(--color-text-muted)]">
+            {isOnline ? timeAgo(device.last_seen_at) : "offline"}
+          </span>
         </div>
-        <span className="text-[10px] text-[var(--color-text-muted)]">
-          {isOnline ? timeAgo(device.last_seen_at) : "offline"}
-        </span>
       </div>
-      <span className="text-xs flex-shrink-0" title={isOnline ? "Online" : "Offline"}>
-        {isOnline ? "(=^-\u03C9-^=)" : "(-.-)zzZ"}
+      <span className="text-xs flex-shrink-0 text-[var(--color-text-muted)]" title={isOnline ? "Online" : "Offline"}>
+        {isOnline ? "(=^-ω-^=)" : "(-.-)zzZ"}
       </span>
     </div>
   );

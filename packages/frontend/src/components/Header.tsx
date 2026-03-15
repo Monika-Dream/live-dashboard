@@ -1,11 +1,11 @@
-function getGreeting(): { kaomoji: string; text: string } {
+function getGreeting(): { face: string; text: string } {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 9) return { kaomoji: "(* ^ ω ^)", text: "早上好呀~" };
-  if (hour >= 9 && hour < 12) return { kaomoji: "(o´▽`o)", text: "上午好呀~" };
-  if (hour >= 12 && hour < 14) return { kaomoji: "(´～`)", text: "午饭时间~" };
-  if (hour >= 14 && hour < 18) return { kaomoji: "(◕‿◕)", text: "下午好呀~" };
-  if (hour >= 18 && hour < 22) return { kaomoji: "(✿╹◡╹)", text: "晚上好呀~" };
-  return { kaomoji: "(￣o￣) . z Z", text: "夜深了喵~" };
+  if (hour >= 5 && hour < 9) return { face: "( *ˊᵕˋ)ノ", text: "早安~" };
+  if (hour >= 9 && hour < 12) return { face: "(◕ᴗ◕✿)", text: "上午好~" };
+  if (hour >= 12 && hour < 14) return { face: "(˘ω˘)", text: "该吃饭啦~" };
+  if (hour >= 14 && hour < 18) return { face: "(´꒳`)", text: "下午好~" };
+  if (hour >= 18 && hour < 22) return { face: "(✦ω✦)", text: "晚上好~" };
+  return { face: "(ᴗ˳ᴗ)⁎", text: "晚安~" };
 }
 
 interface HeaderProps {
@@ -24,29 +24,27 @@ export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
   const greeting = getGreeting();
 
   return (
-    <header className="pb-4 mb-6 separator-dashed">
-      <div className="flex items-end justify-between">
-        {/* Left: title + greeting */}
+    <header className="pb-5 mb-8 separator-dashed animate-fade-up">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold font-[var(--font-jp)] text-[var(--color-text)] leading-tight">
+          <h1 className="font-[var(--font-display)] text-2xl tracking-tight text-[var(--color-primary)] leading-none">
             Monika Now
           </h1>
-          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-            <span className="mr-1">{greeting.kaomoji}</span>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1.5 font-[var(--font-jp)]">
+            <span className="text-[var(--color-accent)] mr-1.5">{greeting.face}</span>
             {greeting.text}
           </p>
         </div>
 
-        {/* Right: viewer count + time */}
-        <div className="text-right flex flex-col items-end gap-0.5">
+        <div className="flex items-center gap-3">
           {viewerCount > 0 && (
-            <p className="text-xs text-[var(--color-primary)] font-medium">
-              {viewerCount} 人在看喵~
-            </p>
+            <span className="text-[11px] font-bold text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2.5 py-1 rounded-full">
+              {viewerCount} 人在看
+            </span>
           )}
-          <p className="text-sm font-mono font-medium text-[var(--color-secondary)]">
+          <span className="font-[var(--font-display)] text-lg text-[var(--color-secondary)] leading-none">
             {timeStr}
-          </p>
+          </span>
         </div>
       </div>
     </header>
