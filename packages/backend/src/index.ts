@@ -75,7 +75,7 @@ const server = Bun.serve({
             return new Response("Bad request", { status: 400 });
           }
           const safePath = normalize(decoded).replace(/^(\.\.[\/\\])+/, "");
-          const resolved = resolve(STATIC_ROOT, safePath.startsWith("/") ? safePath.slice(1) : safePath);
+          const resolved = resolve(STATIC_ROOT, safePath.replace(/^[\/\\]+/, ""));
 
           // Quick check: relative path must not escape root
           const rel = relative(STATIC_ROOT, resolved);
