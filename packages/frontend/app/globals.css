@@ -873,7 +873,8 @@ body.night-mode .petal-container { display: none; }
 
 /* ════════════════════════════════════════
    Fireflies — night mode only
-   From bottom-left to upper-right
+   Drift from bottom-left toward upper-right
+   with natural left-right sway like real bugs
    ════════════════════════════════════════ */
 .firefly-container {
   display: none;
@@ -887,55 +888,60 @@ body.night-mode .firefly-container { display: block; }
 
 .firefly {
   position: absolute;
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
-  background: oklch(85% 0.12 95);
-  box-shadow: 0 0 6px 2px oklch(80% 0.1 95 / 0.5), 0 0 14px 4px oklch(75% 0.08 95 / 0.25);
+  background: oklch(88% 0.12 90);
+  box-shadow: 0 0 5px 2px oklch(82% 0.1 90 / 0.6), 0 0 12px 4px oklch(75% 0.08 90 / 0.2);
   opacity: 0;
-  will-change: transform, opacity;
 }
 
-.firefly:nth-child(1) { left: 5%;  bottom: 8%;  animation: fly-a 12s ease-in-out infinite 0s; }
-.firefly:nth-child(2) { left: 12%; bottom: 3%;  animation: fly-b 15s ease-in-out infinite 2s; }
-.firefly:nth-child(3) { left: 2%;  bottom: 15%; animation: fly-c 11s ease-in-out infinite 4s; }
-.firefly:nth-child(4) { left: 18%; bottom: 5%;  animation: fly-a 14s ease-in-out infinite 6s; }
-.firefly:nth-child(5) { left: 8%;  bottom: 12%; animation: fly-b 13s ease-in-out infinite 1s; }
-.firefly:nth-child(6) { left: 25%; bottom: 2%;  animation: fly-c 16s ease-in-out infinite 3.5s; }
-.firefly:nth-child(7) { left: 15%; bottom: 10%; animation: fly-a 10s ease-in-out infinite 7s; }
-.firefly:nth-child(8) { left: 3%;  bottom: 20%; animation: fly-b 12s ease-in-out infinite 5s; }
+/* Scattered start positions along bottom-left region */
+.firefly:nth-child(1) { left: 5%;  bottom: 5%;  animation: ff-a 9s  ease-in-out infinite 0s; }
+.firefly:nth-child(2) { left: 12%; bottom: 10%; animation: ff-b 11s ease-in-out infinite 2.5s; }
+.firefly:nth-child(3) { left: 3%;  bottom: 18%; animation: ff-c 8s  ease-in-out infinite 5s; }
+.firefly:nth-child(4) { left: 18%; bottom: 3%;  animation: ff-a 12s ease-in-out infinite 1.5s; }
+.firefly:nth-child(5) { left: 8%;  bottom: 14%; animation: ff-b 10s ease-in-out infinite 4s; }
+.firefly:nth-child(6) { left: 20%; bottom: 8%;  animation: ff-c 13s ease-in-out infinite 3s; }
+.firefly:nth-child(7) { left: 2%;  bottom: 22%; animation: ff-a 9s  ease-in-out infinite 7s; }
+.firefly:nth-child(8) { left: 15%; bottom: 6%;  animation: ff-b 11s ease-in-out infinite 6s; }
 
-@keyframes fly-a {
-  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
-  8%   { opacity: 0.7; }
-  20%  { transform: translate(15vw, -18vh) scale(1); opacity: 0.9; }
-  35%  { transform: translate(30vw, -30vh) scale(0.8); opacity: 0.5; }
-  50%  { transform: translate(45vw, -42vh) scale(1.1); opacity: 0.8; }
-  65%  { transform: translate(55vw, -55vh) scale(0.7); opacity: 0.4; }
-  80%  { transform: translate(68vw, -65vh) scale(0.9); opacity: 0.6; }
-  92%  { opacity: 0.2; }
-  100% { transform: translate(80vw, -78vh) scale(0.5); opacity: 0; }
+/* Three drift paths: bottom-left → upper-right with built-in sway */
+@keyframes ff-a {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  5%   { opacity: 0.7; }
+  12%  { transform: translate(8vw, -8vh); opacity: 0.85; }
+  22%  { transform: translate(14vw, -18vh); opacity: 0.6; }
+  32%  { transform: translate(24vw, -25vh); opacity: 0.8; }
+  45%  { transform: translate(30vw, -35vh); opacity: 0.5; }
+  58%  { transform: translate(40vw, -42vh); opacity: 0.65; }
+  72%  { transform: translate(48vw, -52vh); opacity: 0.3; }
+  85%  { transform: translate(55vw, -58vh); opacity: 0.12; }
+  100% { transform: translate(62vw, -65vh); opacity: 0; }
 }
-@keyframes fly-b {
-  0%   { transform: translate(0, 0) scale(0.5); opacity: 0; }
-  6%   { opacity: 0.6; }
-  18%  { transform: translate(12vw, -15vh) scale(1.1); opacity: 0.85; }
-  38%  { transform: translate(28vw, -35vh) scale(0.7); opacity: 0.4; }
-  55%  { transform: translate(42vw, -50vh) scale(1); opacity: 0.75; }
-  72%  { transform: translate(58vw, -62vh) scale(0.6); opacity: 0.3; }
-  88%  { transform: translate(72vw, -72vh) scale(0.8); opacity: 0.5; }
-  95%  { opacity: 0.15; }
-  100% { transform: translate(85vw, -82vh) scale(0.4); opacity: 0; }
+@keyframes ff-b {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  6%   { opacity: 0.65; }
+  15%  { transform: translate(6vw, -10vh); opacity: 0.8; }
+  25%  { transform: translate(16vw, -16vh); opacity: 0.55; }
+  38%  { transform: translate(20vw, -28vh); opacity: 0.75; }
+  50%  { transform: translate(32vw, -36vh); opacity: 0.45; }
+  62%  { transform: translate(38vw, -46vh); opacity: 0.6; }
+  75%  { transform: translate(50vw, -54vh); opacity: 0.25; }
+  88%  { transform: translate(56vw, -62vh); opacity: 0.1; }
+  100% { transform: translate(65vw, -70vh); opacity: 0; }
 }
-@keyframes fly-c {
-  0%   { transform: translate(0, 0) scale(0.7); opacity: 0; }
-  10%  { opacity: 0.8; }
-  25%  { transform: translate(18vw, -20vh) scale(0.9); opacity: 0.6; }
-  40%  { transform: translate(32vw, -38vh) scale(1.2); opacity: 0.9; }
-  58%  { transform: translate(48vw, -48vh) scale(0.6); opacity: 0.35; }
-  75%  { transform: translate(62vw, -60vh) scale(1); opacity: 0.7; }
-  90%  { opacity: 0.2; }
-  100% { transform: translate(75vw, -75vh) scale(0.5); opacity: 0; }
+@keyframes ff-c {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  7%   { opacity: 0.75; }
+  18%  { transform: translate(10vw, -6vh); opacity: 0.6; }
+  28%  { transform: translate(18vw, -20vh); opacity: 0.85; }
+  40%  { transform: translate(22vw, -30vh); opacity: 0.5; }
+  52%  { transform: translate(35vw, -38vh); opacity: 0.7; }
+  65%  { transform: translate(42vw, -48vh); opacity: 0.35; }
+  78%  { transform: translate(52vw, -56vh); opacity: 0.2; }
+  90%  { transform: translate(58vw, -63vh); opacity: 0.08; }
+  100% { transform: translate(68vw, -72vh); opacity: 0; }
 }
 
 /* ════════════════════════════════════════
@@ -947,6 +953,7 @@ body.night-mode .firefly-container { display: block; }
     transition-duration: 0.01ms !important;
   }
   .reveal, .tl-stagger { opacity: 1; transform: none; }
+  .firefly-container { display: none !important; }
 }
 
 /* ════════════════════════════════════════
