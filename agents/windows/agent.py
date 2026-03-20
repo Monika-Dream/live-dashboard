@@ -124,10 +124,9 @@ def load_config() -> dict:
             log.error("config.json: '%s' is not set", key)
             sys.exit(1)
 
-    # Enforce HTTPS — token must not be sent over plaintext
     url: str = cfg["server_url"]
-    if not url.startswith("https://"):
-        log.error("config.json: 'server_url' must use HTTPS (got %s)", url)
+    if not url.startswith("http://") and not url.startswith("https://"):
+        log.error("config.json: 'server_url' must start with http:// or https:// (got %s)", url)
         sys.exit(1)
 
     # Validate numeric fields with sane defaults
