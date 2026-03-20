@@ -36,10 +36,10 @@ if [ -z "$SERVER_URL" ] || [ -z "$TOKEN" ] || [ "$TOKEN" = "YOUR_TOKEN_HERE" ]; 
     exit 1
 fi
 
-# Enforce HTTPS
+# Validate URL scheme
 case "$SERVER_URL" in
-    https://*) ;;
-    *) log "ERROR: SERVER_URL must use HTTPS (got $SERVER_URL)"; exit 1 ;;
+    http://*|https://*) ;;
+    *) log "ERROR: SERVER_URL must start with http:// or https:// (got $SERVER_URL)"; exit 1 ;;
 esac
 
 # Validate numeric fields (returns validated value via stdout)
