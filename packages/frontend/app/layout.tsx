@@ -6,24 +6,13 @@ export const metadata: Metadata = {
   description: "What is Monika doing right now?",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen bg-[var(--color-cream)] relative overflow-x-hidden">
-        {/* Sakura petal layer */}
-        <div className="sakura-container" aria-hidden="true">
-          {Array.from({ length: 20 }, (_, i) => (
-            <div key={i} className={`sakura-petal sakura-petal-${i}`} />
-          ))}
-        </div>
-
-        <main className="relative z-10 max-w-4xl mx-auto px-4 py-8">
+      <body>
+        <div className="app-shell">
           {children}
-        </main>
+        </div>
       </body>
     </html>
   );

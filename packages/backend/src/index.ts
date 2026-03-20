@@ -5,6 +5,7 @@ import { handleReport } from "./routes/report";
 import { handleCurrent } from "./routes/current";
 import { handleTimeline } from "./routes/timeline";
 import { handleHealth } from "./routes/health";
+import { handleDailySummary } from "./routes/daily-summary";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
 import "./services/cleanup";
@@ -62,6 +63,8 @@ const server = Bun.serve({
         response = handleTimeline(url);
       } else if (pathname === "/api/health" && req.method === "GET") {
         response = handleHealth();
+      } else if (pathname === "/api/daily-summary" && req.method === "GET") {
+        response = handleDailySummary(url);
       } else if (!pathname.startsWith("/api/")) {
         // Static file serving disabled if directory doesn't exist
         if (!staticEnabled) {

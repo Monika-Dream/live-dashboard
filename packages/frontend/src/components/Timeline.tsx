@@ -1,16 +1,15 @@
 import type { TimelineSegment } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 
-// Warm color palette
-const APP_COLORS = [
-  "#E8A0BF", "#88C9C9", "#E8B86D", "#C4A882", "#D4917B",
-  "#A8C686", "#D4A0A0", "#8CB8B0", "#C9B97A", "#B89EC4",
+const PALETTE = [
+  "#ff6b9d", "#c084fc", "#67e8f9", "#fbbf24", "#6ee7b7",
+  "#f97316", "#a78bfa", "#38bdf8", "#e879f9", "#4ade80",
 ];
 
-function getAppColor(appName: string, colorMap: Map<string, string>): string {
+function getColor(appName: string, colorMap: Map<string, string>): string {
   const existing = colorMap.get(appName);
   if (existing) return existing;
-  const color = APP_COLORS[colorMap.size % APP_COLORS.length]!;
+  const color = PALETTE[colorMap.size % PALETTE.length]!;
   colorMap.set(appName, color);
   return color;
 }
@@ -27,14 +26,14 @@ interface AggregatedApp {
   appName: string;
   displayTitle: string;
   totalMinutes: number;
-  lastSeenAt: number; // timestamp ms
+  lastSeenAt: number;
   isCurrent: boolean;
 }
 
 interface Props {
   segments: TimelineSegment[];
   summary: Record<string, Record<string, number>>;
-  currentAppByDevice: Record<string, string>; // device_id -> current app_name
+  currentAppByDevice: Record<string, string>;
 }
 
 export default function Timeline({ segments, summary, currentAppByDevice }: Props) {
@@ -42,9 +41,9 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
 
   if (segments.length === 0) {
     return (
-      <div className="text-center py-12 text-[var(--color-text-muted)]">
-        <p className="text-2xl mb-2">(^-ω-^=)</p>
-        <p className="text-sm">今天还没有活动记录呢~</p>
+      <div className="text-center py-16">
+        <p className="text-2xl opacity-40 mb-3">( ^-ω-^ )</p>
+        <p className="text-sm text-[var(--color-text-muted)]">No activity recorded yet</p>
       </div>
     );
   }
@@ -61,17 +60,16 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {Array.from(byDevice.entries()).map(([deviceId, { name, segs }]) => {
-        // Single-pass aggregation: collect last-seen time + display_title per app
         const appMap = new Map<string, AggregatedApp>();
         for (const seg of segs) {
           const existing = appMap.get(seg.app_name);
-          const segTime = new Date(seg.started_at).getTime() || 0;
+          const rawTime = new Date(seg.started_at).getTime();
+          const segTime = Number.isFinite(rawTime) ? rawTime : 0;
           if (existing) {
             if (segTime > existing.lastSeenAt) {
               existing.lastSeenAt = segTime;
-              // Keep the most recent display_title
               if (seg.display_title) existing.displayTitle = seg.display_title;
             }
           } else {
@@ -85,25 +83,20 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
           }
         }
 
-        // Fill totalMinutes from summary (already computed by backend)
         const deviceSummary = summary[deviceId];
         if (deviceSummary) {
           for (const [app, mins] of Object.entries(deviceSummary)) {
             const entry = appMap.get(app);
-            if (entry) {
-              entry.totalMinutes = mins;
-            }
+            if (entry) entry.totalMinutes = mins;
           }
         }
 
-        // Mark current app
         const currentApp = currentAppByDevice[deviceId];
         if (currentApp) {
           const entry = appMap.get(currentApp);
           if (entry) entry.isCurrent = true;
         }
 
-        // Sort: current first, then by lastSeenAt desc
         const sorted = Array.from(appMap.values()).sort((a, b) => {
           if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
           return b.lastSeenAt - a.lastSeenAt;
@@ -111,53 +104,50 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
 
         return (
           <div key={deviceId}>
-            <h3 className="text-xs font-semibold mb-2 text-[var(--color-text-muted)] uppercase tracking-wider">
+            <h3 className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-[0.15em] mb-3">
               {name}
             </h3>
 
-            <div className="max-h-[400px] overflow-y-auto pr-1 timeline-scroll">
-              <div className="space-y-1">
-                {sorted.map((app) => {
-                  const color = getAppColor(app.appName, colorMap);
-                  return (
+            <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
+              {sorted.map((app) => {
+                const color = getColor(app.appName, colorMap);
+
+                return (
+                  <div
+                    key={app.appName}
+                    className={`timeline-entry glass-sm flex items-center gap-3 px-4 py-2.5 group ${
+                      app.isCurrent ? "timeline-active-glow" : ""
+                    }`}
+                  >
+                    {/* Color accent bar */}
                     <div
-                      key={app.appName}
-                      className={`timeline-bar flex items-center ${app.isCurrent ? "timeline-active" : ""}`}
-                    >
-                      {/* Current indicator or color dot */}
-                      <div className="flex-shrink-0 w-16 px-2 py-2 flex items-center justify-center gap-1">
-                        {app.isCurrent ? (
-                          <span className="text-[10px] font-bold text-[var(--color-primary)] current-badge">
-                            ▸ 当前
-                          </span>
-                        ) : (
-                          <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          />
-                        )}
-                      </div>
+                      className="w-1 self-stretch rounded-full flex-shrink-0 transition-opacity group-hover:opacity-100"
+                      style={{ backgroundColor: color, opacity: app.isCurrent ? 1 : 0.5 }}
+                    />
 
-                      {/* App description */}
-                      <div
-                        className="flex-1 px-3 py-2 min-w-0"
-                        style={{ backgroundColor: app.isCurrent ? `${color}30` : `${color}15` }}
-                      >
-                        <span className="text-xs font-medium truncate block">
-                          {getAppDescription(app.appName, app.displayTitle)}
+                    {/* Current badge or spacer */}
+                    <div className="w-10 flex-shrink-0">
+                      {app.isCurrent && (
+                        <span className="text-[10px] font-semibold text-[var(--color-accent)] uppercase tracking-wider">
+                          Now
                         </span>
-                      </div>
-
-                      {/* Duration */}
-                      <div className="flex-shrink-0 w-16 px-2 py-2 text-right">
-                        <span className="text-[10px] font-mono text-[var(--color-accent)] font-medium">
-                          {formatDuration(app.totalMinutes)}
-                        </span>
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Description */}
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm truncate block text-[var(--color-text)]">
+                        {getAppDescription(app.appName, app.displayTitle)}
+                      </span>
+                    </div>
+
+                    {/* Duration */}
+                    <span className="text-[11px] font-mono text-[var(--color-text-muted)] tabular-nums flex-shrink-0">
+                      {formatDuration(app.totalMinutes)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );

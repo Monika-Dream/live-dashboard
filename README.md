@@ -24,11 +24,15 @@
 | 分支 | 风格 | 说明 |
 |------|------|------|
 | **`main`** | 经典和风 | 暖粉色系、Quicksand/Zen Maru 字体、猫耳气泡框、樱花花瓣动画 |
+| **`redesign/blossom-letter`** | 花信 · 文艺书卷 | OKLCH 暖纸色系、Fraunces/Noto Serif SC 字体、飘落花瓣、用量图表、AI 每日总结 |
 | **`redesign/pixel-room`** | 像素房间 | 像素风 Monika 房间 + 日夜主题切换，还在开发中... |
 
 ```bash
 # 使用经典主题（默认）
 git clone https://github.com/Monika-Dream/live-dashboard.git
+
+# 使用花信文艺主题
+git clone -b redesign/blossom-letter https://github.com/Monika-Dream/live-dashboard.git
 
 # 使用像素房间主题
 git clone -b redesign/pixel-room https://github.com/Monika-Dream/live-dashboard.git
@@ -56,6 +60,7 @@ git clone -b redesign/pixel-room https://github.com/Monika-Dream/live-dashboard.
 - **电量显示**：显示电池百分比和充电状态（仅笔记本/手机）
 - **访客计数**：服务端实时在线访客数
 - **自动刷新**：10 秒轮询，自动离线检测（1 分钟超时）
+- **AI 每日总结**：每晚 21:00 自动汇总当日活动，生成一段文艺风短文（50-80 字），保存 7 天。需配置 OpenAI 兼容 API（详见 [AI 每日总结配置](#ai-每日总结配置)）
 - **NSFW 过滤**：服务端黑名单，匹配记录静默丢弃
 - **HMAC 去重**：使用 HMAC-SHA256 对窗口标题哈希去重，不存储明文
 
@@ -136,6 +141,7 @@ live-dashboard/
 │   │       │   ├── report.ts     # POST /api/report（Agent 上报）
 │   │       │   ├── current.ts    # GET /api/current（设备状态）
 │   │       │   ├── timeline.ts   # GET /api/timeline（每日时间线）
+│   │       │   ├── daily-summary.ts # GET /api/daily-summary（AI 每日总结）
 │   │       │   └── health.ts     # GET /api/health
 │   │       ├── middleware/
 │   │       │   └── auth.ts       # Bearer token 认证
@@ -145,6 +151,7 @@ live-dashboard/
 │   │       │   ├── app-mapper.ts     # 进程/包名 → 展示名称
 │   │       │   ├── visitors.ts       # 在线访客计数
 │   │       │   └── cleanup.ts        # 7天数据清理 + 离线检测
+│   │       │   └── daily-summary-gen.ts # AI 每日总结生成（21:00 定时）
 │   │       └── data/
 │   │           ├── app-names.json        # 应用名称字典
 │   │           └── nsfw-blocklist.json   # NSFW 黑名单
@@ -252,6 +259,9 @@ cp -r out/* ../backend/public/
 | `PORT` | 否 | 监听端口（默认：3000） | `3000` |
 | `STATIC_DIR` | 否 | 前端静态文件目录（默认：`./public`） | `./public` |
 | `DB_PATH` | 否 | SQLite 数据库路径（默认：`./live-dashboard.db`） | `/data/live-dashboard.db` |
+| `AI_API_URL` | 否 | OpenAI 兼容的 Chat API 地址，用于每日总结生成 | `https://api.openai.com/v1/chat/completions` |
+| `AI_API_KEY` | 否 | AI API 的 Bearer token | `sk-...` |
+| `AI_MODEL` | 否 | 模型名称（默认：`gpt-4o-mini`） | `gpt-4o-mini` |
 
 多设备支持：递增数字后缀 — `DEVICE_TOKEN_1`、`DEVICE_TOKEN_2`、`DEVICE_TOKEN_3`……
 
@@ -263,6 +273,7 @@ cp -r out/* ../backend/public/
 | GET | `/api/current` | 获取所有设备状态 + 访客数 | 无 |
 | GET | `/api/timeline?date=YYYY-MM-DD&tz=-480` | 获取每日时间线（tz = getTimezoneOffset） | 无 |
 | GET | `/api/health` | 健康检查 | 无 |
+| GET | `/api/daily-summary?date=YYYY-MM-DD` | 获取 AI 每日总结 | 无 |
 
 ### 上报请求体
 
@@ -412,6 +423,42 @@ cp -r out/* ../backend/public/
 2. 作为 Magisk/KernelSU 模块安装（将 `agents/android/` 文件夹打包为 zip）
 
 3. `service.sh` 脚本在后台运行，通过 `am stack list`（轻量）或 `dumpsys`（兼容）获取前台应用，通过 `dumpsys media_session` 检测音乐播放
+
+## AI 每日总结配置
+
+后端内置每晚 21:00 自动生成当日活动总结的功能。总结由 AI 根据当天各设备的应用使用数据生成，风格为温暖简洁的中文短文（50-80 字），保存 7 天后自动清理。
+
+### 配置方法
+
+在 `.env`（或 `docker-compose.yml` 的 `environment` 中）添加以下三个变量：
+
+```env
+# OpenAI 兼容的 Chat Completions 端点
+AI_API_URL=https://api.openai.com/v1/chat/completions
+
+# API 密钥
+AI_API_KEY=sk-your-api-key-here
+
+# 模型名称（可选，默认 gpt-4o-mini）
+AI_MODEL=gpt-4o-mini
+```
+
+**支持的 API 提供商**（任何兼容 OpenAI Chat Completions 格式的服务均可）：
+
+| 提供商 | API URL | 推荐模型 |
+|--------|---------|---------|
+| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` |
+| Claude (via proxy) | 你的代理地址 | `claude-3-haiku-20240307` |
+| DeepSeek | `https://api.deepseek.com/chat/completions` | `deepseek-chat` |
+| 本地 Ollama | `http://localhost:11434/v1/chat/completions` | `qwen2.5:7b` |
+
+### 不配置会怎样？
+
+如果不设置 `AI_API_URL` 和 `AI_API_KEY`，AI 总结功能会静默跳过，不影响其他功能。前端会显示"每晚 21:00 自动生成"的占位文本。
+
+### 前端展示
+
+总结显示在仪表盘左下角"今日小结"区域。前端通过 `GET /api/daily-summary?date=YYYY-MM-DD` 获取数据，如果当天没有生成总结则显示占位文本。
 
 ## VPS 部署指南（Docker + Nginx）
 

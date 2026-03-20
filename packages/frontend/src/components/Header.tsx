@@ -1,11 +1,13 @@
-function getGreeting(): { kaomoji: string; text: string } {
+"use client";
+
+function getGreeting(): { text: string; period: string } {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 9) return { kaomoji: "(* ^ ω ^)", text: "早上好呀~" };
-  if (hour >= 9 && hour < 12) return { kaomoji: "(o´▽`o)", text: "上午好呀~" };
-  if (hour >= 12 && hour < 14) return { kaomoji: "(´～`)", text: "午饭时间~" };
-  if (hour >= 14 && hour < 18) return { kaomoji: "(◕‿◕)", text: "下午好呀~" };
-  if (hour >= 18 && hour < 22) return { kaomoji: "(✿╹◡╹)", text: "晚上好呀~" };
-  return { kaomoji: "(￣o￣) . z Z", text: "夜深了喵~" };
+  if (hour >= 5 && hour < 9) return { text: "早安", period: "morning" };
+  if (hour >= 9 && hour < 12) return { text: "上午好", period: "morning" };
+  if (hour >= 12 && hour < 14) return { text: "午安", period: "noon" };
+  if (hour >= 14 && hour < 18) return { text: "下午好", period: "afternoon" };
+  if (hour >= 18 && hour < 22) return { text: "晚上好", period: "evening" };
+  return { text: "夜深了", period: "night" };
 }
 
 interface HeaderProps {
@@ -24,31 +26,34 @@ export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
   const greeting = getGreeting();
 
   return (
-    <header className="pb-4 mb-6 separator-dashed">
+    <header className="mb-10">
       <div className="flex items-end justify-between">
-        {/* Left: title + greeting */}
+        {/* Left: title */}
         <div>
-          <h1 className="text-xl font-bold font-[var(--font-jp)] text-[var(--color-text)] leading-tight">
+          <h1 className="text-3xl font-semibold font-[var(--font-display)] gradient-text leading-tight tracking-tight">
             Monika Now
           </h1>
-          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-            <span className="mr-1">{greeting.kaomoji}</span>
+          <p className="text-sm text-[var(--color-text-muted)] mt-2 font-light tracking-wide">
             {greeting.text}
           </p>
         </div>
 
-        {/* Right: viewer count + time */}
-        <div className="text-right flex flex-col items-end gap-0.5">
-          {viewerCount > 0 && (
-            <p className="text-xs text-[var(--color-primary)] font-medium">
-              {viewerCount} 人在看喵~
-            </p>
-          )}
-          <p className="text-sm font-mono font-medium text-[var(--color-secondary)]">
+        {/* Right: meta */}
+        <div className="text-right flex flex-col items-end gap-1.5">
+          <p className="text-lg font-mono font-medium text-[var(--color-text-secondary)] tabular-nums">
             {timeStr}
           </p>
+          {viewerCount > 0 && (
+            <p className="text-[11px] text-[var(--color-text-muted)]">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-emerald)] mr-1.5 relative top-[-1px]" />
+              {viewerCount} watching
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Subtle separator */}
+      <div className="separator mt-6" />
     </header>
   );
 }
