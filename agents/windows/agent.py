@@ -18,10 +18,14 @@ from pathlib import Path
 import psutil
 import requests
 
+if getattr(sys, "frozen", False):
+    base_dir = Path(sys.executable).parent
+else:
+    base_dir = Path(__file__).parent
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
-LOG_FILE = Path(__file__).with_name("agent.log")
+LOG_FILE = base_dir / "agent.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -302,7 +306,7 @@ def validate_server_url(url: str) -> None:
 # ---------------------------------------------------------------------------
 def load_config() -> dict:
     """Load config.json from the same directory as this script."""
-    config_path = Path(__file__).with_name("config.json")
+    config_path = base_dir / "config.json"
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
