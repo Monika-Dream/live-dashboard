@@ -44,7 +44,7 @@ export default function CurrentStatus({ devices }: Props) {
         {isOnline ? (
           <>
             <p className="text-xs text-[var(--color-text-muted)] mb-1">
-              Monika 现在...
+              Isabelle 现在...
             </p>
             <p className="text-lg font-bold font-[var(--font-jp)] text-[var(--color-primary)] leading-relaxed status-text">
               {description}
@@ -71,7 +71,7 @@ export default function CurrentStatus({ devices }: Props) {
           <div className="py-1">
             <p className="text-xl mb-1">(-.-)zzZ</p>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Monika 不在电脑前喵~
+              Isabelle 不在电脑前喵~
             </p>
           </div>
         )}

@@ -25,7 +25,7 @@ body {
   transition: background-color 1.2s ease, color 1.2s ease;
 }
 
-/* === Night mode (all devices offline / Monika sleeping) === */
+/* === Night mode (all devices offline / Isabelle sleeping) === */
 body.night-mode {
   --color-cream: #1a1a2e;
   --color-sakura-bg: #1e1e30;

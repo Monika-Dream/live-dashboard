@@ -1,0 +1,171 @@
+import s
+import json
+import time
+import urllib.request
+import urllib.error
+import psutil
+from datetime import datetime, timezone
+
+API_URL = "https://isabelle-status.zeabur.app/api/report"
+TOKEN = "1e397e0d4147c5a89ed8a9ae9e947dae"
+
+LAST_SENT = None
+
+
+def run_osascript(script: str):
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def get_frontmost_app():
+    script = 'tell application "System Events" to get name of first application process whose frontmost is true'
+    return run_osascript(script)
+
+
+def get_window_title(app_name: str):
+    script = f'''
+    tell application "System Events"
+        tell process "{app_name}"
+            try
+                set frontWindow to front window
+                set windowTitle to name of frontWindow
+                return windowTitle
+            on error
+                return ""
+            end try
+        end tell
+    end tell
+    '''
+    title = run_osascript(script)
+    return title or ""
+
+
+def get_qqmusic_info():
+    result = subprocess.run(
+        ["media-control", "get"],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        return None
+
+    raw = result.stdout.strip()
+    if not raw:
+        return None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+    if data.get("bundleIdentifier") != "com.tencent.QQMusicMac":
+        return None
+
+    return {
+        "bundleIdentifier": data.get("bundleIdentifier"),
+        "title": data.get("title"),
+        "artist": data.get("artist"),
+        "album": data.get("album"),
+        "playing": data.get("playing"),
+        "duration": data.get("duration"),
+        "elapsedTime": data.get("elapsedTime"),
+    }
+
+def get_battery_info():
+    battery = psutil.sensors_battery()
+    if battery is None:
+        return None
+    
+    return {
+        "battery_percent": battery.percent,
+        "battery_charging": battery.power_plugged
+    }
+
+def build_display_title(app_name: str, window_title: str):
+    text = window_title.strip()
+    if text:
+        return text
+    return f"正在使用 {app_name}"
+
+
+def send_status(app_name: str, window_title: str, music_info=None):
+    payload = {
+        "app_id": app_name,
+        "window_title": window_title,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "music": music_info,
+        "extra": battery_info
+    }
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        API_URL,
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        body = resp.read().decode("utf-8")
+        print(f"[OK] sent app={app_name} title={window_title!r} music={music_info} -> {body}")
+
+
+def make_signature(app_name: str, window_title: str, music_info):
+    if music_info:
+        music_sig = (
+            music_info.get("title"),
+            music_info.get("artist"),
+            music_info.get("album"),
+            music_info.get("playing"),
+        )
+    else:
+        music_sig = None
+
+    return (app_name, window_title, music_sig)
+
+
+def main():
+    global LAST_SENT
+    print("Mac reporter started. Press Ctrl+C to stop.")
+
+    while True:
+        try:
+            app = get_frontmost_app()
+            if not app:
+                time.sleep(5)
+                continue
+
+            title = get_window_title(app)
+            music_info = get_qqmusic_info()
+
+            current = make_signature(app, title, music_info)
+
+            if current != LAST_SENT:
+                send_status(app, title, music_info)
+                LAST_SENT = current
+
+            time.sleep(5)
+
+        except KeyboardInterrupt:
+            print("\nStopped.")
+            break
+        except urllib.error.URLError as e:
+            print(f"[NET] {e}")
+            time.sleep(5)
+        except Exception as e:
+            print(f"[ERR] {e}")
+            time.sleep(5)
+
+
+if __name__ == "__main__":
+    main()

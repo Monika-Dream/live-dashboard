@@ -2,5 +2,5 @@ id=live_dashboard_agent
 name=Live Dashboard Agent
 version=v1.0.0
 versionCode=1
-author=Monika
+author=Isabelle
 description=Reports foreground app usage to Live Dashboard server

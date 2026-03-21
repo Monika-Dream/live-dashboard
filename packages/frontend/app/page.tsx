@@ -5,9 +5,11 @@ import { useDashboard } from "@/hooks/useDashboard";
 import Header from "@/components/Header";
 import CurrentStatus from "@/components/CurrentStatus";
 import MusicStatus from "@/components/MusicStatus";
+import BrowserHistory from "@/components/BrowserHistory";
+import MusicPlaylist from "@/components/MusicPlaylist";
+import DetailedTimeline from "@/components/DetailedTimeline";
 import DeviceCard from "@/components/DeviceCard";
 import DatePicker from "@/components/DatePicker";
-import Timeline from "@/components/Timeline";
 
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
@@ -25,7 +27,7 @@ export default function Home() {
     return map;
   }, [current?.devices]);
 
-  // Night mode: activate when all devices are offline (Monika sleeping)
+  // Night mode: activate when all devices are offline (Isabelle sleeping)
   const allOffline = useMemo(() => {
     if (!current?.devices || current.devices.length === 0) return false;
     return current.devices.every((d) => d.is_online !== 1);
@@ -100,19 +102,32 @@ export default function Home() {
 
               <div className="separator-dashed mb-4" />
 
+              {/* Browser history panel */}
+              {timeline && <BrowserHistory segments={timeline.segments} />}
+
+              {/* Music playlist panel */}
+              {timeline && <MusicPlaylist activities={timeline.segments.map((seg) => ({
+                id: Math.random(),
+                device_id: seg.device_id,
+                device_name: seg.device_name,
+                platform: "",
+                app_id: seg.app_id,
+                app_name: seg.app_name,
+                display_title: seg.display_title,
+                started_at: seg.started_at,
+              }))} />}
+
               {/* Timeline content */}
               {loading && timeline ? (
                 <div className="opacity-60">
-                  <Timeline
+                  <DetailedTimeline
                     segments={timeline.segments}
-                    summary={timeline.summary}
                     currentAppByDevice={currentAppByDevice}
                   />
                 </div>
               ) : timeline ? (
-                <Timeline
+                <DetailedTimeline
                   segments={timeline.segments}
-                  summary={timeline.summary}
                   currentAppByDevice={currentAppByDevice}
                 />
               ) : null}
@@ -124,7 +139,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="mt-12 pt-4 separator-dashed text-center">
         <p className="text-[10px] text-[var(--color-text-muted)]">
-          Monika Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
+          Isabelle Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
         </p>
       </footer>
     </>

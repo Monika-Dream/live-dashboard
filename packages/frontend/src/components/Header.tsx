@@ -29,7 +29,7 @@ export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
         {/* Left: title + greeting */}
         <div>
           <h1 className="text-xl font-bold font-[var(--font-jp)] text-[var(--color-text)] leading-tight">
-            Monika Now
+            Isabelle Now
           </h1>
           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
             <span className="mr-1">{greeting.kaomoji}</span>
