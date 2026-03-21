@@ -60,6 +60,35 @@ db.run(`
   )
 `);
 
+// Background music history table
+db.run(`
+  CREATE TABLE IF NOT EXISTS music_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    device_name TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    app_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    artist TEXT DEFAULT '',
+    album TEXT DEFAULT '',
+    playing INTEGER DEFAULT 1,
+    music_hash TEXT NOT NULL DEFAULT '',
+    time_bucket INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_music_history_dedup
+  ON music_history(device_id, music_hash, time_bucket)
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_music_history_started
+  ON music_history(started_at DESC)
+`);
+
 // ── Schema migration: add display_title + extra columns ──
 
 const KNOWN_TABLES = new Set(["activities", "device_states"]);
@@ -124,6 +153,15 @@ export const upsertDeviceState = db.prepare(`
     is_online = 1
 `);
 
+export const insertMusicHistory = db.prepare(`
+  INSERT INTO music_history (
+    device_id, device_name, platform, app_name,
+    title, artist, album, playing, music_hash, time_bucket, started_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(device_id, music_hash, time_bucket) DO NOTHING
+`);
+
 export const getAllDeviceStates = db.prepare(`
   SELECT * FROM device_states ORDER BY last_seen_at DESC
 `);
@@ -144,6 +182,18 @@ export const getTimelineByDateAndDevice = db.prepare(`
   ORDER BY started_at ASC
 `);
 
+export const getMusicHistoryByDate = db.prepare(`
+  SELECT * FROM music_history
+  WHERE date(started_at) = ?
+  ORDER BY started_at DESC
+`);
+
+export const getMusicHistoryByDateAndDevice = db.prepare(`
+  SELECT * FROM music_history
+  WHERE date(started_at) = ? AND device_id = ?
+  ORDER BY started_at DESC
+`);
+
 export const markOfflineDevices = db.prepare(`
   UPDATE device_states SET is_online = 0
   WHERE is_online = 1
@@ -153,6 +203,10 @@ export const markOfflineDevices = db.prepare(`
 
 export const cleanupOldActivities = db.prepare(`
   DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
+`);
+
+export const cleanupOldMusicHistory = db.prepare(`
+  DELETE FROM music_history WHERE created_at < datetime('now', '-7 days')
 `);
 
 export default db;

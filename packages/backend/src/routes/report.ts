@@ -2,7 +2,7 @@ import { authenticateToken } from "../middleware/auth";
 import { resolveAppName } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
 import { processDisplayTitle } from "../services/privacy-tiers";
-import { insertActivity, upsertDeviceState, hmacTitle } from "../db";
+import { insertActivity, insertMusicHistory, upsertDeviceState, hmacTitle } from "../db";
 
 const MAX_TITLE_LENGTH = 256;
 
@@ -63,33 +63,37 @@ export async function handleReport(req: Request): Promise<Response> {
   const timeBucket = Math.floor(Date.now() / 10000);
   const titleHash = hmacTitle(windowTitle.toLowerCase().trim());
 
-  // Parse extra (battery, music, etc.) — whitelist fields first, then serialize
-  const extra: Record<string, unknown> = {};
-  
-  // Battery from body.extra
+  // Parse extra (battery, etc.) — whitelist fields first, then serialize
+  let extraJson = "{}";
+  let musicForHistory: Record<string, unknown> | null = null;
   if (body.extra && typeof body.extra === "object" && !Array.isArray(body.extra)) {
+    const extra: Record<string, unknown> = {};
     if (typeof body.extra.battery_percent === "number" && Number.isFinite(body.extra.battery_percent)) {
       extra.battery_percent = Math.max(0, Math.min(100, Math.round(body.extra.battery_percent)));
     }
     if (typeof body.extra.battery_charging === "boolean") {
       extra.battery_charging = body.extra.battery_charging;
     }
+    
+    // Music from body.extra.music — 完整保留所有字段
+    const rawMusic = body.extra.music;
+    if (rawMusic != null && typeof rawMusic === "object" && !Array.isArray(rawMusic)) {
+      const music: Record<string, unknown> = {};
+      if (typeof rawMusic.title === "string") music.title = rawMusic.title.slice(0, 256);
+      if (typeof rawMusic.artist === "string") music.artist = rawMusic.artist.slice(0, 256);
+      if (typeof rawMusic.album === "string") music.album = rawMusic.album.slice(0, 256);
+      if (typeof rawMusic.app === "string") music.app = rawMusic.app.slice(0, 64);
+      if (typeof rawMusic.playing === "boolean") music.playing = rawMusic.playing;
+      if (typeof rawMusic.duration === "number") music.duration = rawMusic.duration;
+      if (typeof rawMusic.elapsedTime === "number") music.elapsedTime = rawMusic.elapsedTime;
+      if (typeof rawMusic.bundleIdentifier === "string") music.bundleIdentifier = rawMusic.bundleIdentifier;
+      if (Object.keys(music).length > 0) {
+        extra.music = music;
+        musicForHistory = music;
+      }
+    }
+    extraJson = JSON.stringify(extra);
   }
-  
-  // Music from body.music (top level) — 独立处理，不在 body.extra 判断内
-  if (body.music && typeof body.music === "object" && !Array.isArray(body.music)) {
-    const music: Record<string, unknown> = {};
-    if (typeof body.music.title === "string") music.title = body.music.title;
-    if (typeof body.music.artist === "string") music.artist = body.music.artist;
-    if (typeof body.music.album === "string") music.album = body.music.album;
-    if (typeof body.music.playing === "boolean") music.playing = body.music.playing;
-    if (typeof body.music.duration === "number") music.duration = body.music.duration;
-    if (typeof body.music.elapsedTime === "number") music.elapsedTime = body.music.elapsedTime;
-    if (typeof body.music.bundleIdentifier === "string") music.bundleIdentifier = body.music.bundleIdentifier;
-    extra.music = music;
-  }
-  
-  const extraJson = JSON.stringify(extra);
 
   // Insert activity — window_title is NEVER stored (privacy: empty string)
   try {
@@ -128,6 +132,36 @@ export async function handleReport(req: Request): Promise<Response> {
   } catch (e: any) {
     console.error("[report] Device state update error:", e.message);
     return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+
+  if (musicForHistory?.title && typeof musicForHistory.title === "string") {
+    try {
+      const title = musicForHistory.title;
+      const artist = typeof musicForHistory.artist === "string" ? musicForHistory.artist : "";
+      const album = typeof musicForHistory.album === "string" ? musicForHistory.album : "";
+      const app = typeof musicForHistory.app === "string" ? musicForHistory.app : "QQ音乐";
+      const playing = musicForHistory.playing === false ? 0 : 1;
+      const musicHash = hmacTitle(`${app}\n${title}\n${artist}\n${album}`.toLowerCase().trim());
+      const musicTimeBucket = Math.floor(Date.now() / 30000);
+
+      insertMusicHistory.run(
+        device.device_id,
+        device.device_name,
+        device.platform,
+        app,
+        title,
+        artist,
+        album,
+        playing,
+        musicHash,
+        musicTimeBucket,
+        startedAt
+      );
+    } catch (e: any) {
+      if (!e.message?.includes("UNIQUE constraint")) {
+        console.error("[report] Music history insert error:", e.message);
+      }
+    }
   }
 
   return Response.json({ ok: true });

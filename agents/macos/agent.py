@@ -27,7 +27,7 @@ import requests
 # ---------------------------------------------------------------------------
 LOG_FILE = Path(__file__).with_name("agent.log")
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed from INFO to DEBUG for music detection troubleshooting
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(LOG_FILE, encoding="utf-8"),
@@ -136,8 +136,66 @@ end tell""",
 }
 
 
+def get_qqmusic_info() -> dict | None:
+    """Read QQ Music metadata from the system media session via media-control."""
+    try:
+        result = subprocess.run(
+            ["media-control", "get"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        log.debug("QQ Music detection error via media-control: %s", e)
+        return None
+
+    if result.returncode != 0:
+        log.debug("QQ Music detection error via media-control: exit %s", result.returncode)
+        return None
+
+    raw = result.stdout.strip()
+    if not raw:
+        return None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        log.debug("QQ Music detection error via media-control: invalid JSON: %s", e)
+        return None
+
+    if data.get("bundleIdentifier") != "com.tencent.QQMusicMac":
+        return None
+
+    info: dict[str, object] = {
+        "app": "QQ音乐",
+        "bundleIdentifier": data.get("bundleIdentifier"),
+    }
+    if isinstance(data.get("title"), str) and data["title"].strip():
+        info["title"] = data["title"].strip()[:256]
+    if isinstance(data.get("artist"), str) and data["artist"].strip():
+        info["artist"] = data["artist"].strip()[:256]
+    if isinstance(data.get("album"), str) and data["album"].strip():
+        info["album"] = data["album"].strip()[:256]
+    if isinstance(data.get("playing"), bool):
+        info["playing"] = data["playing"]
+    if isinstance(data.get("duration"), (int, float)):
+        info["duration"] = data["duration"]
+    if isinstance(data.get("elapsedTime"), (int, float)):
+        info["elapsedTime"] = data["elapsedTime"]
+
+    if "title" not in info:
+        return None
+
+    return info
+
+
 def get_music_info() -> dict | None:
     """Query known music apps via AppleScript to find now-playing info."""
+    qqmusic = get_qqmusic_info()
+    if qqmusic:
+        log.debug("Found music from QQ Music media session: %s", qqmusic)
+        return qqmusic
+
     for app_name, script in _MUSIC_APPS.items():
         try:
             result = subprocess.run(
@@ -145,7 +203,7 @@ def get_music_info() -> dict | None:
                 capture_output=True, text=True, timeout=3,
             )
             if result.returncode != 0:
-                # AppleScript 出错，继续尝试下一个应用
+                log.debug(f"Music detection error for {app_name}: AppleScript returned {result.returncode}")
                 continue
             output = result.stdout.strip()
             if output in ("NOT_RUNNING", "NOT_PLAYING", ""):
@@ -289,10 +347,10 @@ class Reporter:
             "window_title": window_title[:256],
             "timestamp": int(time.time() * 1000),
         }
-        if extra:
-            payload["extra"] = extra
-        if music:
-            payload["music"] = music
+        if extra or music:
+            payload["extra"] = extra or {}
+            if music:
+                payload["extra"]["music"] = music
         try:
             resp = self.session.post(self.endpoint, json=payload, timeout=10)
             if resp.status_code in (200, 201, 409):

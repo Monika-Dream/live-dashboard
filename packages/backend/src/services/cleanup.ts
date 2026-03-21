@@ -1,4 +1,4 @@
-import { cleanupOldActivities, markOfflineDevices } from "../db";
+import { cleanupOldActivities, cleanupOldMusicHistory, markOfflineDevices } from "../db";
 
 // Cleanup old activities every hour
 setInterval(() => {
@@ -6,6 +6,10 @@ setInterval(() => {
     const result = cleanupOldActivities.run();
     if (result.changes > 0) {
       console.log(`[cleanup] Deleted ${result.changes} old activity records`);
+    }
+    const musicResult = cleanupOldMusicHistory.run();
+    if (musicResult.changes > 0) {
+      console.log(`[cleanup] Deleted ${musicResult.changes} old music records`);
     }
   } catch (e) {
     console.error("[cleanup] Failed:", e);

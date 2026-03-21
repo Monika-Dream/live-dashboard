@@ -1,8 +1,10 @@
 import {
+  getMusicHistoryByDate,
+  getMusicHistoryByDateAndDevice,
   getTimelineByDate,
   getTimelineByDateAndDevice,
 } from "../db";
-import type { ActivityRecord, TimelineSegment } from "../types";
+import type { ActivityRecord, MusicHistoryRecord, TimelineSegment } from "../types";
 import { db } from "../db";
 
 export function handleTimeline(url: URL): Response {
@@ -21,6 +23,7 @@ export function handleTimeline(url: URL): Response {
   const deviceId = url.searchParams.get("device_id");
 
   let activities: ActivityRecord[];
+  let musicHistory: MusicHistoryRecord[];
 
   if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
     // Convert offset minutes to SQLite time modifier format (e.g. "+08:00" for tz=-480)
@@ -34,15 +37,24 @@ export function handleTimeline(url: URL): Response {
     const query = deviceId
       ? db.prepare(`SELECT * FROM activities WHERE date(started_at, '${modifier}') = ? AND device_id = ? ORDER BY started_at ASC`)
       : db.prepare(`SELECT * FROM activities WHERE date(started_at, '${modifier}') = ? ORDER BY started_at ASC`);
+    const musicQuery = deviceId
+      ? db.prepare(`SELECT * FROM music_history WHERE date(started_at, '${modifier}') = ? AND device_id = ? ORDER BY started_at DESC`)
+      : db.prepare(`SELECT * FROM music_history WHERE date(started_at, '${modifier}') = ? ORDER BY started_at DESC`);
 
     activities = deviceId
       ? (query.all(date, deviceId) as ActivityRecord[])
       : (query.all(date) as ActivityRecord[]);
+    musicHistory = deviceId
+      ? (musicQuery.all(date, deviceId) as MusicHistoryRecord[])
+      : (musicQuery.all(date) as MusicHistoryRecord[]);
   } else {
     // No timezone offset — use UTC (backwards compatible)
     activities = deviceId
       ? (getTimelineByDateAndDevice.all(date, deviceId) as ActivityRecord[])
       : (getTimelineByDate.all(date) as ActivityRecord[]);
+    musicHistory = deviceId
+      ? (getMusicHistoryByDateAndDevice.all(date, deviceId) as MusicHistoryRecord[])
+      : (getMusicHistoryByDate.all(date) as MusicHistoryRecord[]);
   }
 
   // Build timeline segments with duration
@@ -107,5 +119,5 @@ export function handleTimeline(url: URL): Response {
     summary[devId] = Object.fromEntries(appMap);
   }
 
-  return Response.json({ date, segments, summary });
+  return Response.json({ date, segments, summary, music_history: musicHistory });
 }

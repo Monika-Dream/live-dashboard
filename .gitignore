@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next.bak.*/
 out/
 dist/
 *.db

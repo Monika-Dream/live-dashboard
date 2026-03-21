@@ -14,19 +14,6 @@ import DatePicker from "@/components/DatePicker";
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
 
-  // Build currentAppByDevice map for Timeline
-  const currentAppByDevice = useMemo(() => {
-    const map: Record<string, string> = {};
-    if (current?.devices) {
-      for (const d of current.devices) {
-        if (d.is_online === 1 && d.app_name) {
-          map[d.device_id] = d.app_name;
-        }
-      }
-    }
-    return map;
-  }, [current?.devices]);
-
   // Night mode: activate when all devices are offline (Isabelle sleeping)
   const allOffline = useMemo(() => {
     if (!current?.devices || current.devices.length === 0) return false;
@@ -91,6 +78,8 @@ export default function Home() {
                   <DeviceCard key={d.device_id} device={d} />
                 ))
               )}
+
+              {timeline && <MusicPlaylist records={timeline.music_history ?? []} />}
             </div>
 
             {/* Right: timeline (wide) */}
@@ -105,30 +94,18 @@ export default function Home() {
               {/* Browser history panel */}
               {timeline && <BrowserHistory segments={timeline.segments} />}
 
-              {/* Music playlist panel */}
-              {timeline && <MusicPlaylist activities={timeline.segments.map((seg) => ({
-                id: Math.random(),
-                device_id: seg.device_id,
-                device_name: seg.device_name,
-                platform: "",
-                app_id: seg.app_id,
-                app_name: seg.app_name,
-                display_title: seg.display_title,
-                started_at: seg.started_at,
-              }))} />}
-
               {/* Timeline content */}
               {loading && timeline ? (
                 <div className="opacity-60">
                   <DetailedTimeline
                     segments={timeline.segments}
-                    currentAppByDevice={currentAppByDevice}
+                    devices={current.devices ?? []}
                   />
                 </div>
               ) : timeline ? (
                 <DetailedTimeline
                   segments={timeline.segments}
-                  currentAppByDevice={currentAppByDevice}
+                  devices={current.devices ?? []}
                 />
               ) : null}
             </div>

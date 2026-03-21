@@ -11,15 +11,16 @@ export interface ReportPayload {
   extra?: {
     battery_percent?: number;
     battery_charging?: boolean;
-  };
-  music?: {
-    title?: string;
-    artist?: string;
-    album?: string;
-    playing?: boolean;
-    duration?: number;
-    elapsedTime?: number;
-    bundleIdentifier?: string;
+    music?: {
+      title?: string;
+      artist?: string;
+      album?: string;
+      app?: string;
+      playing?: boolean;
+      duration?: number;
+      elapsedTime?: number;
+      bundleIdentifier?: string;
+    };
   };
 }
 
@@ -58,4 +59,18 @@ export interface TimelineSegment {
   duration_minutes: number;
   device_id: string;
   device_name: string;
+}
+
+export interface MusicHistoryRecord {
+  id: number;
+  device_id: string;
+  device_name: string;
+  platform: string;
+  app_name: string;
+  title: string;
+  artist: string;
+  album: string;
+  playing: number;
+  started_at: string;
+  created_at: string;
 }

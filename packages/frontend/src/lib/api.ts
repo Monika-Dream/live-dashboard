@@ -46,6 +46,20 @@ export interface TimelineSegment {
   device_name: string;
 }
 
+export interface MusicHistoryRecord {
+  id: number;
+  device_id: string;
+  device_name: string;
+  platform: string;
+  app_name: string;
+  title: string;
+  artist: string;
+  album: string;
+  playing: number;
+  started_at: string;
+  created_at: string;
+}
+
 export interface CurrentResponse {
   devices: DeviceState[];
   recent_activities: ActivityRecord[];
@@ -57,6 +71,7 @@ export interface TimelineResponse {
   date: string;
   segments: TimelineSegment[];
   summary: Record<string, Record<string, number>>;
+  music_history: MusicHistoryRecord[];
 }
 
 export async function fetchCurrent(signal?: AbortSignal): Promise<CurrentResponse> {

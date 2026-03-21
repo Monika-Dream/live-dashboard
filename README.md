@@ -1,692 +1,377 @@
 # Live Dashboard
- - https://now.monikadream.homes/
 
-实时设备活动仪表盘 —— 公开展示你正在使用的应用，拥有二次元风格 UI 和隐私优先设计。
+这是我基于原作者版本继续修改的一版个人使用分支。
 
-特色功能：带猫耳装饰的视觉小说风格对话框、中文戏剧化活动描述（如"正在B站划水摸鱼喵~"）、飘落的樱花花瓣动画，以及三级隐私系统保护敏感窗口标题。
+原版本已经有基础的设备活动上报、当前状态展示和视觉小说风格 UI；我这边主要不是重做底层，而是围绕“我自己每天怎么看这些数据更顺手”做了一轮偏使用体验的重构。
 
-## 主题分支
+现在这个版本主要关注三件事：
 
-本项目提供两个前端主题，可按喜好选择：
+- 后台音乐要真的可用，尤其是 QQ 音乐。
+- 时间线和浏览历史不要碎，要能看懂
+- 页面上的信息要更像“我今天在干什么”的总结，而不是原始日志堆叠
 
-| 分支 | 风格 | 说明 |
-|------|------|------|
-| **`main`** | 经典和风 | 暖粉色系、Quicksand/Zen Maru 字体、猫耳气泡框、樱花花瓣动画 |
-| **`redesign/blossom-letter`** | 花信 · 文艺书卷 | OKLCH 暖纸色系、Fraunces/Noto Serif SC 字体、双栏布局、飘落花瓣、用量图表、AI 每日总结 |
-| **`redesign/pixel-room`** | 像素房间 | 像素风房间 + 日夜主题切换，还在开发中... |
+## 我相对原版本主要改了什么
 
-```bash
-# 使用经典主题（默认）
-git clone https://github.com/Monika-Dream/live-dashboard.git
+### 1. 重做了 QQ 音乐后台识别链路
 
-# 使用花信文艺主题
-git clone -b redesign/blossom-letter https://github.com/Monika-Dream/live-dashboard.git
+原来的实现更偏前台窗口识别，对我这种“QQ 音乐在后台播歌”的使用方式不稳定。
 
-# 使用像素房间主题
-git clone -b redesign/pixel-room https://github.com/Monika-Dream/live-dashboard.git
-```
+我做的调整：
 
-两个分支的后端、Agent、部署配置完全一致，仅前端 UI 不同。
+- macOS Agent 不再只依赖前台窗口标题判断 QQ 音乐
+- 改成通过 `media-control get` 读取系统媒体会话
+- 只认 `bundleIdentifier = com.tencent.QQMusicMac`
+- 后端把当前音乐写进 `device_states.extra.music`
+- 后端新增 `music_history`，单独记录当天播放过的音乐
 
-## 截图
+结果是：
 
-**亮色模式（设备在线）**
+- “音乐喵”现在看的是后台真实播放状态
+- “今日听过的歌单”也不再依赖前台时间线
 
-![亮色模式](docs/preview-main-light.png)
+### 2. 把“今日音乐合集”从前台活动里拆出来
 
-**暗色模式（设备离线）**
+原版本更接近“当前状态展示”，但我这里需要的是“今天听过什么”。
 
-![暗色模式](docs/preview-main-dark.png)
+我做的调整：
 
-## 功能特性
+- 新增音乐历史存储
+- 前端歌单改读 `music_history`
+- 歌单默认展示前 4 条
+- 点开后展示当天去重后的音乐列表
+- 去掉了错误的“重复播放次数”展示，因为原始上报频率会把次数算偏
 
-- **VN 对话框**：猫耳装饰的视觉小说气泡框，展示当前活动
-- **戏剧化描述**：以保护隐私的趣味文案替代原始应用/窗口信息（如"正在用VS Code疯狂写bug喵~"）
-- **富展示标题**：隐私允许时展示你正在看/听/写什么（如"正在YouTube看「Minecraft Tutorial」喵~"）
-- **音乐检测**：后台检测音乐播放器（Spotify、QQ音乐、网易云等），前台非音乐应用时组合显示（如"正在用VS Code疯狂写bug，一边听Artist「Song」喵~"），音乐应用前台时底部显示 ♪ 正在听
-- **AFK 检测**：Windows Agent 通过 `GetLastInputInfo` 检测键鼠空闲，超过 5 分钟（可配置）切换为心跳模式，用户返回后自动恢复
-- **三级隐私系统**：SHOW / BROWSER / HIDE 三级窗口标题分类
-- **樱花花瓣动画**：20 片 CSS 动画花瓣，自然飘摇效果，尊重 `prefers-reduced-motion` 设置
-- **夜间模式**：当所有设备离线时（Monika 不在电脑前），页面自动切换为深紫色暗夜主题，樱花花瓣变为微弱发光的萤火效果，带有交错的呼吸动画；任一设备上线后自动恢复日间模式，过渡动画 1.2 秒
-- **时间线视图**：按日聚合的时间线，带时长计算和日期选择器
-- **时区感知**：前端发送时区偏移，后端正确查询本地日期
-- **多设备支持**：同时支持多台设备（Windows、macOS、Android）
-- **电量显示**：显示电池百分比和充电状态（仅笔记本/手机）
-- **访客计数**：服务端实时在线访客数
-- **自动刷新**：10 秒轮询，自动离线检测（1 分钟超时）
-- **NSFW 过滤**：服务端黑名单，匹配记录静默丢弃
-- **HMAC 去重**：使用 HMAC-SHA256 对窗口标题哈希去重，不存储明文
+### 3. 重做了浏览器历史阅读体验
 
-## 架构
+原始时间线里浏览器活动太碎，连续打开同一个网页会变成很多条，很难读。
 
-```
-                    HTTP(S) POST                              静态导出
-┌──────────────┐  ──────────────→  ┌───────────────────┐  ←───────────────  ┌──────────────┐
-│ Windows Agent│                   │    Bun 后端        │                   │   Next.js    │
-│  (Python)    │                   │   + SQLite + HMAC  │                   │  (SSG → /out)│
-├──────────────┤                   ├───────────────────┤                   ├──────────────┤
-│ macOS Agent  │  ──────────────→  │  隐私分级          │  ──── 提供 ────→  │  樱花 UI     │
-│  (Python)    │                   │  NSFW 过滤         │     静态文件      │  VN 对话框   │
-├──────────────┤                   │  展示标题          │                   │  时间线      │
-│ Android Agent│  ──────────────→  │                   │                   │              │
-│ (Magisk/KSU) │                   └───────────────────┘                   └──────────────┘
-└──────────────┘
-```
+我做的调整：
 
-- **通信方式**：HTTPS POST 轮询（短连接，对防火墙友好）
-- **存储**：通过 `bun:sqlite` 使用 SQLite（零外部依赖）
-- **前端**：10 秒自动轮询，由后端提供静态导出文件
-- **数据保留**：7 天自动清理
-- **隐私**：窗口标题从不以明文存储；HMAC 哈希仅用于去重
-- **访客追踪**：服务端计数，随 `/api/current` 返回
+- 浏览器标题会先清洗，去掉 `- Isabelle`、`- Google Chrome - Isabelle` 这类后缀
+- 连续多条相同网页标题会自动合并成一条
+- 合并条目支持展开，看每次具体时间
+- 浏览器历史弹窗顶部增加整体概览
+- 会显示当天最常读的前三网页
 
-## 隐私分级系统
+### 4. 重做了任务时间线
 
-后端将每个应用分为三个隐私等级：
+原版本更像普通时间线列表，但我自己更需要的是：
 
-| 等级 | 行为 | 示例应用 |
-|------|------|---------|
-| **SHOW** | 从 `window_title` 中提取有意义的标题 | YouTube、Spotify、VS Code、Steam、原神 |
-| **BROWSER** | 去除浏览器后缀，检查敏感内容 | Chrome、Edge、Firefox、Safari |
-| **HIDE** | `display_title` 为空，`window_title` 不存储 | Telegram、微信、Discord、银行类应用 |
+- 现在在干什么
+- 过去某一段时间主要在干什么
 
-### SHOW 级别
+我做的调整：
 
-- **视频**：提取视频标题（去除"- YouTube"、"\_哔哩哔哩\_bilibili"等后缀）
-- **音乐**：提取歌曲信息（处理 Spotify、foobar2000 等格式）
-- **IDE**：提取项目/文件名（处理 VS Code `—`、JetBrains `–`、Sublime `-` 分隔符）
-- **文档**：从 Word、Excel、Notion、Obsidian 标题中提取文档名
-- **游戏/Galgame**：直接使用窗口标题作为游戏名
+- 当前任务改成“最近 15 分钟内活跃的活动”
+- 当前任务按应用归并
+- 当前任务文案统一走原项目里那套戏剧化描述，例如“正在用命令行敲命令喵~”
+- 其他时段任务改成 24 小时网格时间轴
+- 横轴是时间，按小时推进
+- 每小时一列，每列 6 个 10 分钟格子
+- 支持拖动选择一个时间段查看详情
+- 也支持手动输入开始和结束时间查询
+- 时段弹窗顶部会先总结“这段时间主要在干啥”和前三事件
 
-### BROWSER 级别
+### 5. 调整了页面信息分工
 
-1. 去除浏览器名称后缀（处理 Edge 零宽字符和配置文件模式）
-2. 如果标题包含视频网站关键词 → 显示为视频标题
-3. 如果标题包含敏感关键词（邮箱、银行、登录等） → 隐藏
-4. 否则 → 显示页面标题
+我把一些原本混在一起的信息拆开了：
 
-### HIDE 级别
+- 顶部状态气泡只负责说“现在在干什么”
+- 音乐信息不再混在顶部小字里
+- 音乐只留在独立的“音乐喵”模块
+- 设备、音乐、浏览历史、任务时间线各自负责不同层级的信息
 
-即时通讯、邮箱、金融、系统工具、代理工具、购物类应用 — `window_title` 在服务端直接丢弃，仅存储应用名称。
+### 6. 增加了适合我自己开发的启动方式
 
-## 技术栈
+原项目有自己的本地启动方式，但我这里同时在改原项目和 worktree，直接沿用不够顺手。
 
-| 组件 | 技术 |
-|------|------|
-| 后端 | [Bun](https://bun.sh/) + TypeScript + SQLite |
-| 前端 | Next.js 15 + React 19 + Tailwind CSS 4（静态导出） |
-| Windows Agent | Python + ctypes Win32 API + psutil |
-| macOS Agent | Python + AppleScript (osascript) + psutil |
-| Android Agent | Shell 脚本（Magisk/KernelSU 模块） |
-| 部署 | Docker（多阶段构建）+ Nginx 反向代理 |
+我补了：
+
+- `start-dev.sh`
+
+它会：
+
+- 杀掉旧的前端、后端和重复 Agent
+- 用当前 worktree 代码启动前后端
+- 连接真实数据库
+- 启动修过的 macOS Agent
+
+这个主要是为了避免多个旧 Agent 同时运行、互相覆盖当前状态。
+
+## 现在这版实际数据链路
+
+### 当前状态
+
+Agent 上报到后端 `/api/report` 后，后端会更新 `device_states`，前端通过 `/api/current` 读取：
+
+- 当前应用
+- 展示标题
+- 在线状态
+- 电量信息
+- 当前音乐 `extra.music`
+
+### 时间线
+
+后端 `/api/timeline` 返回两类数据：
+
+- `segments`
+  用于当前任务、其他时段任务、浏览器历史
+- `music_history`
+  用于今日音乐合集
+
+这意味着：
+
+- 音乐喵看的是当前状态里的 `extra.music`
+- 今日听过的歌单看的是 `music_history`
+
+两者已经解耦。
+
+## 保留了原项目的基础架构
+
+底层架构没有推翻，还是沿用原项目这套：
+
+- 后端：Bun + TypeScript + SQLite
+- 前端：Next.js 15 + React 19 + Tailwind CSS 4
+- macOS Agent：Python + AppleScript + `media-control`
+- Windows Agent：Python
+- Android Agent：Shell
+
+## 关键变化落在哪些文件
+
+如果要看我主要改动，大致在这些地方：
+
+- `agents/macos/agent.py`
+  QQ 音乐后台识别改成系统媒体会话
+- `packages/backend/src/routes/report.ts`
+  当前音乐与音乐历史的写入逻辑
+- `packages/backend/src/db.ts`
+  `music_history` 表
+- `packages/frontend/src/components/MusicStatus.tsx`
+  音乐喵
+- `packages/frontend/src/components/MusicPlaylist.tsx`
+  今日音乐合集
+- `packages/frontend/src/components/BrowserHistory.tsx`
+  浏览器历史聚合与概览
+- `packages/frontend/src/components/DetailedTimeline.tsx`
+  当前任务与其他时段任务重构
+- `packages/frontend/src/components/CurrentStatus.tsx`
+  顶部状态信息分工调整
+- `packages/frontend/src/lib/app-descriptions.ts`
+  沿用原项目的戏剧化活动文案
 
 ## 项目结构
 
-```
+```text
 live-dashboard/
 ├── packages/
-│   ├── backend/                  # Bun 后端服务
-│   │   └── src/
-│   │       ├── index.ts          # HTTP 服务器 + 静态文件服务
-│   │       ├── db.ts             # SQLite 模式、迁移、HMAC 哈希
-│   │       ├── types.ts          # TypeScript 类型定义
-│   │       ├── routes/
-│   │       │   ├── report.ts     # POST /api/report（Agent 上报）
-│   │       │   ├── current.ts    # GET /api/current（设备状态）
-│   │       │   ├── timeline.ts   # GET /api/timeline（每日时间线）
-│   │       │   └── health.ts     # GET /api/health
-│   │       ├── middleware/
-│   │       │   └── auth.ts       # Bearer token 认证
-│   │       ├── services/
-│   │       │   ├── privacy-tiers.ts  # 三级隐私 + 标题处理
-│   │       │   ├── nsfw-filter.ts    # NSFW 内容过滤
-│   │       │   ├── app-mapper.ts     # 进程/包名 → 展示名称
-│   │       │   ├── visitors.ts       # 在线访客计数
-│   │       │   └── cleanup.ts        # 7天数据清理 + 离线检测
-│   │       └── data/
-│   │           ├── app-names.json        # 应用名称字典
-│   │           └── nsfw-blocklist.json   # NSFW 黑名单
-│   │
-│   └── frontend/                 # Next.js 前端
-│       ├── app/                  # 页面 + globals.css（樱花、VN 样式）
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── db.ts
+│   │   │   ├── types.ts
+│   │   │   └── routes/
+│   │   │       ├── current.ts
+│   │   │       ├── health.ts
+│   │   │       ├── report.ts
+│   │   │       └── timeline.ts
+│   │   └── live-dashboard.db
+│   └── frontend/
+│       ├── app/
 │       └── src/
-│           ├── components/       # CurrentStatus, DeviceCard, Timeline, Header, DatePicker
-│           ├── hooks/            # useDashboard（轮询 hook）
-│           └── lib/              # API 客户端 + 戏剧化应用描述
-│
+│           ├── components/
+│           ├── hooks/
+│           └── lib/
 ├── agents/
-│   ├── windows/                  # Windows Agent
-│   │   ├── agent.py              # 主脚本（Win32 API + 电量）
-│   │   ├── config.json           # 配置文件（已 gitignore）
-│   │   ├── requirements.txt      # Python 依赖
-│   │   ├── build.bat             # PyInstaller 打包
-│   │   └── install-task.bat      # Windows 计划任务自启动
-│   │
-│   ├── macos/                    # macOS Agent
-│   │   ├── agent.py              # 主脚本（AppleScript + psutil）
-│   │   ├── config.json           # 配置文件（已 gitignore）
-│   │   ├── config.json.example   # 配置模板
-│   │   └── requirements.txt      # Python 依赖
-│   │
-│   └── android/                  # Android Agent（Magisk/KSU 模块）
-│       ├── service.sh            # 主脚本（dumpsys + curl）
-│       ├── config.sh             # 配置文件（已 gitignore）
-│       └── module.prop           # 模块元数据
-│
-├── deploy/nginx/                 # Nginx 配置示例
-├── start.sh                      # 一键本地启动脚本
-├── Dockerfile                    # 多阶段构建（前端 + 后端）
-├── docker-compose.yml            # 容器编排
-└── .env.example                  # 环境变量模板
+│   ├── macos/
+│   ├── windows/
+│   └── android/
+├── start.sh
+└── start-dev.sh
 ```
 
-## 本地开发
+## 数据表
 
-> 只想在 VPS 上跑？跳到 [VPS 部署指南](#vps-部署指南docker--nginx)。
+### `activities`
 
-### 一键启动（macOS）
+记录活动时间线原始条目。
+
+### `device_states`
+
+记录每台设备当前最新状态。
+
+额外信息放在 `extra` 里，例如：
+
+- 电量
+- 充电状态
+- 当前音乐
+
+### `music_history`
+
+记录后台音乐播放历史，用于“今日听过的歌单”。
+
+## 我现在自己怎么启动
+
+### 开发模式
+
+这个仓库额外提供了一个开发启动脚本：
+
+```bash
+./start-dev.sh
+```
+
+它会：
+
+- 杀掉旧的前端、后端和重复 Agent
+- 用当前 worktree 的代码启动前后端
+- 使用真实数据库路径启动后端
+- 启动 macOS Agent
+- 前端跑在 `http://localhost:3001`
+
+### 原项目的一键启动脚本
+
+仓库里也保留了原本的：
 
 ```bash
 ./start.sh
 ```
 
-脚本自动完成：生成随机 token 和 HASH_SECRET、安装 Bun 依赖、构建前端、创建 macOS Agent venv、启动后端（端口 3000）和 macOS Agent。访问 `http://localhost:3000` 即可。
-
----
+它更偏向初次本地跑通项目。
 
 ### 手动启动
 
-#### 前置要求
-
-- [Bun](https://bun.sh/) v1.0+
-- Node.js 18+（仅前端构建需要）
-
-#### 1. 配置环境变量
-
-```bash
-cp .env.example packages/backend/.env
-```
-
-编辑 `packages/backend/.env`：
-
-```env
-# 格式：token:device_id:device_name:platform
-# ⚠️ 使用冒号分隔，因此 token、device_id、device_name 中不得包含冒号（:）
-DEVICE_TOKEN_1=your_secret_token:my-mac:My Mac:macos
-
-# 生成方式：openssl rand -hex 32
-HASH_SECRET=your_random_secret_here
-```
-
-#### 2. 启动后端
+后端：
 
 ```bash
 cd packages/backend
 bun install
-bun run src/index.ts
+HASH_SECRET=你的值 DEVICE_TOKEN_1=你的值 bun run src/index.ts
 ```
 
-#### 3. 构建并提供前端
+前端：
 
 ```bash
 cd packages/frontend
 bun install
-bun run build
-
-# 将静态构建复制到后端
-cp -r out/* ../backend/public/
+NEXT_PUBLIC_API_BASE=http://localhost:3000 PORT=3001 bun run dev
 ```
 
-访问 `http://localhost:3000`。
+macOS Agent：
+
+```bash
+cd agents/macos
+python3 agent.py
+```
+
+## Zeabur 部署
+
+如果你是买了 Zeabur 服务器，想把它变成一个可以公开访问的网址，实际部署方式是：
+
+- Zeabur 上部署这个仓库里的后端和前端
+- 你自己的电脑持续运行 macOS Agent
+- Agent 把你的活动上报到 Zeabur 上的服务
+- 网址展示的就是你电脑实时上报的数据
+
+### 部署步骤
+
+1. 把当前代码推到你自己的 GitHub 仓库
+2. 在 Zeabur 里选择从 GitHub 部署
+3. 直接使用仓库根目录的 `Dockerfile`
+4. 给服务挂一个持久化卷，挂载到 `/data`
+5. 配置环境变量
+6. 部署完成后，把本机 `agents/macos/config.json` 的 `server_url` 改成 Zeabur 域名
+
+### Zeabur 环境变量
+
+至少需要：
+
+```env
+HASH_SECRET=替换成 openssl rand -hex 32 生成的值
+DEVICE_TOKEN_1=替换成 你的token:my-mac:My Mac:macos
+DB_PATH=/data/live-dashboard.db
+STATIC_DIR=/app/public
+PORT=3000
+```
+
+### 本机 Agent 配置
+
+部署完成后，把本机 `agents/macos/config.json` 改成：
+
+```json
+{
+  "server_url": "https://你的-zeabur-域名",
+  "token": "上面 DEVICE_TOKEN_1 里的 token 部分",
+  "interval_seconds": 5,
+  "heartbeat_seconds": 60
+}
+```
+
+然后在你自己的电脑上启动：
+
+```bash
+cd agents/macos
+python3 agent.py
+```
+
+只要 Agent 持续运行，Zeabur 上的网址就会持续更新。
 
 ## 环境变量
 
-| 变量 | 必填 | 描述 | 示例 |
-|------|------|------|------|
-| `DEVICE_TOKEN_N` | 是 | 设备令牌，格式：`token:device_id:name:platform`（各字段不得含冒号） | `abc123:my-pc:My PC:windows` |
-| `HASH_SECRET` | 是 | HMAC-SHA256 密钥，用于标题哈希。生成方式：`openssl rand -hex 32` | `a1b2c3d4...` |
-| `PORT` | 否 | 监听端口（默认：3000） | `3000` |
-| `STATIC_DIR` | 否 | 前端静态文件目录（默认：`./public`） | `./public` |
-| `DB_PATH` | 否 | SQLite 数据库路径（默认：`./live-dashboard.db`） | `/data/live-dashboard.db` |
-
-多设备支持：递增数字后缀 — `DEVICE_TOKEN_1`、`DEVICE_TOKEN_2`、`DEVICE_TOKEN_3`……
-
-## API 参考
-
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| POST | `/api/report` | Agent 上报当前应用 | Bearer token |
-| GET | `/api/current` | 获取所有设备状态 + 访客数 | 无 |
-| GET | `/api/timeline?date=YYYY-MM-DD&tz=-480` | 获取每日时间线（tz = getTimezoneOffset） | 无 |
-| GET | `/api/health` | 健康检查 | 无 |
-
-### 上报请求体
-
-```json
-{
-  "app_id": "chrome.exe",
-  "window_title": "GitHub - live-dashboard - Google Chrome",
-  "timestamp": 1741866000000,
-  "extra": {
-    "battery_percent": 85,
-    "battery_charging": true,
-    "music": {
-      "title": "Ave Mujica",
-      "artist": "Ave Mujica",
-      "app": "Spotify"
-    }
-  }
-}
-```
-
-### 当前状态响应
-
-```json
-{
-  "devices": [
-    {
-      "device_id": "my-pc",
-      "device_name": "My PC",
-      "platform": "windows",
-      "app_name": "Chrome",
-      "display_title": "GitHub - live-dashboard",
-      "is_online": 1,
-      "last_seen_at": "2026-03-14T12:00:00.000Z",
-      "extra": { "battery_percent": 85, "battery_charging": true }
-    }
-  ],
-  "recent_activities": [...],
-  "server_time": "2026-03-14T12:00:05.000Z",
-  "viewer_count": 3
-}
-```
-
-## Agent 配置
-
-### Windows Agent
-
-1. 安装 Python 3.10+ 及依赖：
-   ```bash
-   pip install -r agents/windows/requirements.txt
-   ```
-
-2. 创建 `agents/windows/config.json`（此文件已 gitignore）：
-   ```json
-   {
-     "server_url": "https://your-domain.com",
-     "token": "your_device_token_here",
-     "interval_seconds": 5,
-     "heartbeat_seconds": 60,
-     "idle_threshold_seconds": 300
-   }
-   ```
-
-3. 运行：`python agents/windows/agent.py`
-
-4. 或打包为 .exe：运行 `build.bat`，然后使用 `install-task.bat` 设置开机自启
-
-**电量**：笔记本用户通过 `psutil.sensors_battery()` 自动获取电池信息。台式机不显示电量（正常现象）。
-
-**音乐检测**：Agent 自动扫描所有窗口，识别已知音乐播放器（Spotify、QQ音乐、网易云、foobar2000、酷狗、酷我、AIMP 等），解析窗口标题提取歌曲和歌手信息。
-
-**AFK 检测**：`idle_threshold_seconds`（默认 300 秒）控制无操作阈值。超过该时间无键鼠输入后，Agent 切换为心跳模式（仍保持在线但不追踪窗口变化），用户返回后自动恢复。
-
-### macOS Agent
-
-**前置要求**：macOS 10.14+，Python 3.10+，允许终端访问辅助功能（或通过 Accessibility 授权）。
-
-1. 安装依赖（建议使用 venv 隔离）：
-   ```bash
-   cd agents/macos
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. 创建 `agents/macos/config.json`（参考 `config.json.example`，此文件已 gitignore）：
-   ```json
-   {
-     "server_url": "http://your-server-ip-or-domain",
-     "token": "your_device_token_here",
-     "interval_seconds": 5,
-     "heartbeat_seconds": 60
-   }
-   ```
-
-3. 运行：
-   ```bash
-   .venv/bin/python agent.py
-   ```
-
-4. **开机自启动（launchd）**：
-   ```bash
-   # 创建 plist（替换路径为你的实际路径）
-   cat > ~/Library/LaunchAgents/com.live-dashboard.agent.plist << 'EOF'
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-       <key>Label</key>
-       <string>com.live-dashboard.agent</string>
-       <key>ProgramArguments</key>
-       <array>
-           <string>/path/to/live-dashboard/agents/macos/.venv/bin/python</string>
-           <string>/path/to/live-dashboard/agents/macos/agent.py</string>
-       </array>
-       <key>RunAtLoad</key>
-       <true/>
-       <key>KeepAlive</key>
-       <true/>
-       <key>StandardOutPath</key>
-       <string>/path/to/live-dashboard/agents/macos/agent.log</string>
-       <key>StandardErrorPath</key>
-       <string>/path/to/live-dashboard/agents/macos/agent.log</string>
-       <key>WorkingDirectory</key>
-       <string>/path/to/live-dashboard</string>
-   </dict>
-   </plist>
-   EOF
-
-   # 加载（立即生效，登录后自动启动）
-   launchctl load ~/Library/LaunchAgents/com.live-dashboard.agent.plist
-   ```
-
-**工作原理**：`agent.py` 通过 AppleScript (`osascript`) 获取前台应用名和窗口标题，每 5 秒向后端上报一次。电量信息通过 `psutil.sensors_battery()` 获取。音乐检测通过 AppleScript 查询 Spotify、Apple Music、QQ音乐、网易云音乐。
-
-**注意**：首次运行时，macOS 可能弹出权限请求，需在「系统设置 → 隐私与安全性 → 辅助功能」中授权终端或 Python。
-
-### Android Agent（Magisk / KernelSU）
-
-1. 创建 `agents/android/config.sh`（已 gitignore）：
-   ```bash
-   SERVER_URL="https://your-domain.com"
-   TOKEN="your_device_token_here"
-   ```
-
-2. 作为 Magisk/KernelSU 模块安装（将 `agents/android/` 文件夹打包为 zip）
-
-3. `service.sh` 脚本在后台运行，通过 `am stack list`（轻量）或 `dumpsys`（兼容）获取前台应用，通过 `dumpsys media_session` 检测音乐播放
-
-## VPS 部署指南（Docker + Nginx）
-
-以下是从零开始在 VPS 上部署的完整步骤。
-
-### 前置要求
-
-| 项目 | 说明 |
-|------|------|
-| Linux VPS | Ubuntu 20.04+ / Debian 11+ 推荐，1 核 512MB 内存即可 |
-| Docker | Docker Engine 20.10+ 和 Docker Compose V2 |
-| Nginx | 作为反向代理，处理 HTTPS 和速率限制 |
-| 域名 | 需要一个域名指向 VPS IP，用于 HTTPS |
-
-如果 VPS 还没有 Docker，先安装：
-
-```bash
-# Ubuntu / Debian
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-# 退出并重新登录，使 docker 组生效
-```
-
-### 第一步：克隆项目
-
-```bash
-cd ~
-git clone https://github.com/Monika-Dream/live-dashboard.git
-cd live-dashboard
-```
+后端主要依赖这些变量：
 
-> 如果想用花信文艺主题，改为：`git clone -b redesign/blossom-letter ...`
-
-### 第二步：配置环境变量
-
-```bash
-cp .env.example .env
-```
+- `HASH_SECRET`
+  标题哈希用
+- `DEVICE_TOKEN_1`
+  设备令牌，格式是 `token:device_id:device_name:platform`
+- `DB_PATH`
+  SQLite 数据库路径
+- `PORT`
+  后端端口，默认 `3000`
 
-用编辑器打开 `.env`（vim、nano 均可），按以下说明填写：
-
-```env
-# ──────────────────────────────────────────────────────────────
-# 设备令牌（每台设备一行）
-# 格式：随机密钥:设备ID:设备名称:平台
-# ⚠️ 冒号是分隔符，所以各字段本身不能包含冒号
-# ──────────────────────────────────────────────────────────────
+## 为什么我要特别改 macOS 音乐识别
 
-# 你的 Windows 电脑
-DEVICE_TOKEN_1=abc123def456:my-pc:My PC:windows
-
-# 你的 Android 手机（如果有）
-DEVICE_TOKEN_2=xyz789ghi012:my-phone:My Phone:android
-
-# ──────────────────────────────────────────────────────────────
-# HMAC 密钥（必填，用于窗口标题哈希去重，不设则服务器拒绝启动）
-# ──────────────────────────────────────────────────────────────
-HASH_SECRET=这里替换为下面命令生成的随机字符串
-```
-
-生成随机令牌和密钥：
-
-```bash
-# 生成设备令牌（用作 DEVICE_TOKEN 的密钥部分）
-openssl rand -hex 16
-# 输出示例：a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
-
-# 生成 HASH_SECRET
-openssl rand -hex 32
-# 输出示例：1a2b3c4d5e6f...（64 个十六进制字符）
-```
-
-将生成的随机字符串填入 `.env` 对应位置即可。
-
-### 第三步：配置 Docker 网络
+当前 macOS 侧对 QQ 音乐的处理是：
 
-项目使用 Docker 外部网络，这样容器可以和同一 VPS 上的 Nginx（或其他服务）通信。
+- 前台窗口活动仍然通过 AppleScript 获取
+- 后台音乐通过 `media-control get` 获取
+- 只认 `bundleIdentifier == com.tencent.QQMusicMac`
 
-```bash
-# 如果你还没有 Docker 网络，创建一个
-docker network create my_network
+所以：
 
-# 查看已有网络（如果你之前已有其他项目的网络，可以复用）
-docker network ls
-```
+- QQ 音乐在后台播放时，音乐喵也能显示
+- 今日音乐合集也会记录
 
-然后编辑 `docker-compose.yml`，将最后几行的网络名称改为你的实际网络名：
+## 现在前端交互和原版本最不一样的地方
 
-```yaml
-networks:
-  dm_network:
-    external: true
-    name: my_network  # ← 改成你刚创建的（或已有的）网络名
-```
+### 浏览器历史
 
-> 如果你不需要与其他容器通信，也可以删掉整个 `networks` 配置，改为暴露端口：
-> 在 `services.dashboard` 下添加 `ports: ["3000:3000"]`，然后 Nginx 代理到 `127.0.0.1:3000`。
+- 连续多条同标题网页会合并
+- 点开可以看每次具体时间
+- 顶部会展示最常读的前三网页
 
-### 第四步：构建并启动
+### 当前任务
 
-```bash
-docker compose up -d --build
-```
+- 取最近 15 分钟内的活动
+- 按应用归并
+- 用戏剧化文案显示“现在在干什么”
 
-首次构建需要下载镜像和安装依赖，视网络速度可能需要几分钟。构建完成后检查：
+### 其他时段任务
 
-```bash
-# 查看容器状态（应该显示 Up）
-docker ps | grep live_dashboard
+- 横轴是 0 到 24 点
+- 每小时一列
+- 每列 6 个格子
+- 每格代表 10 分钟
+- 可以拖动选择一段时间
+- 也可以手动输入开始和结束时间
 
-# 查看启动日志（确认没有报错）
-docker logs live_dashboard --tail 30
+## 当前已知情况
 
-# 你应该能看到类似这样的输出：
-#   Server running on port 3000
-#   Static files: /app/public
-#   Schema migration complete
-```
+- 前端开发模式下，`next dev --turbopack` 偶尔会把 `.next` 跑坏，表现为 `500 Internal Server Error`
+- 这不是业务代码错误，重启前端 dev 服务即可恢复
+- 如果同时跑了多个旧的 macOS Agent，可能互相覆盖状态，尤其会把音乐状态冲掉
 
-如果日志中出现 `HASH_SECRET is required` 错误，说明 `.env` 中的 `HASH_SECRET` 没有正确设置，回到第二步检查。
+## 后续还可以继续改的方向
 
-### 第五步：配置 Nginx 反向代理
-
-项目提供了 Nginx 配置模板 `deploy/nginx/example.conf`，你需要复制并修改它。
-
-**1. 添加速率限制区域**
-
-编辑 Nginx 主配置 `/etc/nginx/nginx.conf`，在 `http {}` 块内添加一行：
-
-```nginx
-http {
-    # ... 其他配置 ...
-    limit_req_zone $binary_remote_addr zone=dashboard_api:2m rate=10r/s;
-}
-```
-
-**2. 创建站点配置**
-
-```bash
-sudo cp deploy/nginx/example.conf /etc/nginx/sites-available/dashboard.conf
-sudo ln -s /etc/nginx/sites-available/dashboard.conf /etc/nginx/sites-enabled/
-sudo vim /etc/nginx/sites-available/dashboard.conf
-```
-
-需要修改的地方：
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name your-domain.com;          # ← 改成你的域名
-
-    ssl_certificate /path/to/cert.pem;    # ← 改成你的证书路径
-    ssl_certificate_key /path/to/key.key; # ← 改成你的私钥路径
-
-    # 如果容器使用外部网络（第三步的方式），代理到容器 IP:
-    # proxy_pass http://172.20.0.80:3000;
-    #
-    # 如果容器暴露了端口（ports 方式），代理到本机:
-    # proxy_pass http://127.0.0.1:3000;
-}
-```
-
-> **SSL 证书**：可以用 [Let's Encrypt](https://certbot.eff.org/)（免费）或 Cloudflare 源证书。
-> Let's Encrypt 快速设置：`sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d your-domain.com`
-
-**3. 测试并重载 Nginx**
-
-```bash
-sudo nginx -t                # 检查配置语法
-sudo systemctl reload nginx  # 重载配置（不中断现有连接）
-```
-
-### 第六步：验证部署
-
-在浏览器打开 `https://your-domain.com`，你应该能看到仪表盘页面（此时没有设备数据，会显示所有设备离线的夜间模式）。
-
-用 curl 测试 API：
-
-```bash
-# 健康检查
-curl https://your-domain.com/api/health
-# 预期：{"status":"ok"}
-
-# 当前状态（此时 devices 应该为空数组）
-curl https://your-domain.com/api/current
-# 预期：{"devices":[],"recent_activities":[],"server_time":"...","viewer_count":1}
-```
-
-### 第七步：配置客户端 Agent
-
-部署完成后，在你的设备上安装 Agent，让它开始向服务器上报数据。详见上方 [Agent 配置](#agent-配置) 章节。
-
-配置要点：
-- `server_url` 填你的域名（如 `https://your-domain.com`），必须是 HTTPS
-- `token` 填 `.env` 中 `DEVICE_TOKEN_N` 冒号前的那段密钥（如 `abc123def456`）
-- Agent 运行后，刷新仪表盘页面，几秒内就能看到设备上线和当前活动
-
-### 更新部署
-
-当你 push 了新代码到 GitHub 后，在 VPS 上更新：
-
-```bash
-cd ~/live-dashboard
-git pull origin main
-docker compose up -d --build
-```
-
-Docker 会自动重建变更的部分（有缓存，通常比首次构建快很多）。SQLite 数据保存在 Docker volume 中，重建容器不会丢失数据。
-
-### 常见问题
-
-| 问题 | 解决方法 |
-|------|---------|
-| 容器启动后立刻退出 | `docker logs live_dashboard` 查看错误。通常是 `.env` 缺少必填项 |
-| 页面打不开（502） | 检查 Nginx 的 `proxy_pass` 地址是否和容器实际 IP/端口一致 |
-| Agent 上报失败（401） | 检查 Agent 的 `token` 是否和 `.env` 中 `DEVICE_TOKEN` 冒号前的部分完全一致 |
-| Agent 上报失败（连接超时） | 确认域名 DNS 解析正确、VPS 防火墙开放了 443 端口 |
-| 页面显示但没有数据 | Agent 在运行吗？`curl https://your-domain.com/api/current` 看 `devices` 是否有内容 |
-| 时间线日期不对 | 前端自动发送时区偏移，确认浏览器时区设置正确 |
-
-## 安全设计
-
-- **设备认证**：通过环境变量配置的每设备 Bearer token（不存储在代码中）
-- **身份绑定**：Token 在服务端解析为 `device_id`；请求体中的 `device_id` 被忽略
-- **隐私分级**：三级分类；HIDE 级别的应用在写入数据库前丢弃 `window_title`
-- **HMAC 哈希**：使用 HMAC-SHA256（带密钥）对 `window_title` 哈希去重；无密钥不可逆
-- **NSFW 过滤**：服务端黑名单，匹配记录静默丢弃
-- **去重**：SQLite 唯一约束 `(device_id, app_id, title_hash, time_bucket)` + `ON CONFLICT DO NOTHING`
-- **路径遍历防护**：路径规范化 + 相对路径检查 + realpath 符号链接验证
-- **URL 安全验证**：HTTPS 始终放行；HTTP 仅限私网（Python Agent 通过 DNS 解析 + `ipaddress.is_global` 校验，Android 仅允许 localhost/127.0.0.1）
-- **速率限制**：Nginx `limit_req` 限制上报端点
-- **XSS 防护**：React JSX 默认转义、`Content-Type: application/json`、`X-Content-Type-Options: nosniff`
-- **非 Root 容器**：Docker 以非特权 `dashboard` 用户运行
-- **离线检测**：设备超过 1 分钟无活动标记为离线
-
-## 添加新应用
-
-要添加对新应用的支持：
-
-1. **`packages/backend/src/data/app-names.json`** — 映射进程名（Windows）或包名（Android）到展示名称
-2. **`packages/backend/src/services/privacy-tiers.ts`** — 分配隐私等级（SHOW/BROWSER/HIDE），如适用则添加到对应分类集合（`ideApps`、`musicApps` 等）
-3. **`packages/frontend/src/lib/app-descriptions.ts`** — 添加戏剧化描述和可选的标题模板
-
-## 自定义
-
-### 更换主题
-
-编辑 `packages/frontend/app/globals.css` 中的 CSS 变量：
-
-```css
-@theme {
-  --color-cream: #FFF8E7;        /* 页面背景 */
-  --color-sakura-bg: #FFF0F3;    /* 樱花色调 */
-  --color-card: #FFFDF7;         /* 卡片背景 */
-  --color-border: #E8D5C4;       /* 卡片边框 */
-  --color-primary: #E8A0BF;      /* 主色调粉色（猫耳、花瓣、装饰） */
-  --color-secondary: #88C9C9;    /* 辅助色青色 */
-  --color-accent: #E8B86D;       /* 点缀色金色 */
-}
-```
-
-夜间模式颜色在 `body.night-mode` 中覆盖，默认为深紫色系：
-
-```css
-body.night-mode {
-  --color-cream: #1a1a2e;        /* 深蓝紫背景 */
-  --color-sakura-bg: #1e1e30;    /* 深紫樱花色调 */
-  --color-card: #242440;         /* 暗紫卡片背景 */
-  --color-border: #3a3a5c;       /* 柔和紫灰边框 */
-  --color-primary: #9b7bb8;      /* 淡紫主色调 */
-  --color-secondary: #5a8a8a;    /* 暗青辅助色 */
-  --color-accent: #b8944d;       /* 暖金点缀色 */
-}
-```
-
-### 更换描述
-
-编辑 `packages/frontend/src/lib/app-descriptions.ts`。每个应用包含：
-- 通用描述（无 `display_title` 时使用）
-- 可选的标题模板（有 `display_title` 时使用）
-
-## 许可证
-
-MIT
+- 时间轴颜色改成按活动类别固定映射，而不是按应用轮转
+- 时间段概览做成更自然的一句话总结
+- 浏览器历史加更稳定的网页归类
+- 补充更正式的部署文档
