@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import type { HealthRecord, HealthDataResponse } from "@/lib/api";
 import { fetchHealthData } from "@/lib/api";
 
 // Type metadata for display
 const TYPE_META: Record<string, { label: string; icon: string; priority: number }> = {
-  heart_rate:             { label: "心率",     icon: "❤",  priority: 1 },
+  heart_rate:             { label: "心率",     icon: "💓",  priority: 1 },
   oxygen_saturation:      { label: "血氧",     icon: "🩸", priority: 2 },
   steps:                  { label: "步数",     icon: "🚶", priority: 3 },
   active_calories:        { label: "活动卡路里", icon: "🔥", priority: 4 },
@@ -209,41 +209,99 @@ function formatValue(value: number, type: string): string {
   return value.toFixed(1);
 }
 
-// Pure SVG heart rate chart — responsive full-width
+// Pure SVG heart rate chart — responsive full-width, with hover tooltip
 function HeartRateChart({ points }: { points: { time: Date; value: number }[] }) {
-  if (points.length < 2) return null;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const width = 600;
   const height = 120;
   const padX = 36;
   const padY = 8;
 
-  const minVal = Math.min(...points.map((p) => p.value)) - 5;
-  const maxVal = Math.max(...points.map((p) => p.value)) + 5;
-  const minTime = points[0]!.time.getTime();
-  const maxTime = points[points.length - 1]!.time.getTime();
-  const timeSpan = maxTime - minTime || 1;
-  const valSpan = maxVal - minVal || 1;
+  // Memoize all derived data to avoid recalc on hover re-renders
+  const { pointCoords, pathD, labelTimes, minVal, maxVal } = useMemo(() => {
+    if (points.length < 2) return { pointCoords: [], pathD: "", labelTimes: [], minVal: 0, maxVal: 0 };
 
-  const toX = (t: number) => padX + ((t - minTime) / timeSpan) * (width - padX * 2);
-  const toY = (v: number) => padY + (1 - (v - minVal) / valSpan) * (height - padY * 2);
+    const vals = points.map((p) => p.value);
+    const mn = Math.min(...vals) - 5;
+    const mx = Math.max(...vals) + 5;
+    const minTime = points[0]!.time.getTime();
+    const maxTime = points[points.length - 1]!.time.getTime();
+    const tSpan = maxTime - minTime || 1;
+    const vSpan = mx - mn || 1;
 
-  const pathParts = points.map((p, i) => {
-    const x = toX(p.time.getTime()).toFixed(1);
-    const y = toY(p.value).toFixed(1);
-    return i === 0 ? `M${x},${y}` : `L${x},${y}`;
-  });
+    const toX = (t: number) => padX + ((t - minTime) / tSpan) * (width - padX * 2);
+    const toY = (v: number) => padY + (1 - (v - mn) / vSpan) * (height - padY * 2);
 
-  // Time labels
-  const labelTimes = [0, 0.25, 0.5, 0.75, 1].map((f) => {
-    const t = new Date(minTime + f * timeSpan);
-    return { x: toX(t.getTime()), label: `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}` };
-  });
+    const coords = points.map((p) => ({
+      x: toX(p.time.getTime()),
+      y: toY(p.value),
+    }));
+
+    const d = coords.map((c, i) => {
+      const x = c.x.toFixed(1);
+      const y = c.y.toFixed(1);
+      return i === 0 ? `M${x},${y}` : `L${x},${y}`;
+    }).join("");
+
+    const labels = [0, 0.25, 0.5, 0.75, 1].map((f) => {
+      const t = new Date(minTime + f * tSpan);
+      return { x: toX(t.getTime()), label: `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}` };
+    });
+
+    return { pointCoords: coords, pathD: d, labelTimes: labels, minVal: mn, maxVal: mx };
+  }, [points]);
+
+  // Binary search for nearest point by X coordinate (points are time-sorted → X-sorted)
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      const svg = svgRef.current;
+      if (!svg || pointCoords.length === 0) return;
+      const rect = svg.getBoundingClientRect();
+      if (rect.width === 0) return;
+      const svgX = ((e.clientX - rect.left) / rect.width) * width;
+
+      let lo = 0;
+      let hi = pointCoords.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (pointCoords[mid]!.x < svgX) lo = mid + 1;
+        else hi = mid;
+      }
+      // Check lo and lo-1 to find actual nearest
+      let nearest = lo;
+      if (lo > 0 && Math.abs(pointCoords[lo - 1]!.x - svgX) < Math.abs(pointCoords[lo]!.x - svgX)) {
+        nearest = lo - 1;
+      }
+      setHoverIdx(nearest);
+    },
+    [pointCoords]
+  );
+
+  const handleMouseLeave = useCallback(() => setHoverIdx(null), []);
+
+  if (points.length < 2) return null;
+
+  const hovered = hoverIdx !== null ? points[hoverIdx] : null;
+  const hoveredCoord = hoverIdx !== null ? pointCoords[hoverIdx] : null;
+
+  // Tooltip text
+  const tooltipText = hovered
+    ? `${hovered.time.getHours().toString().padStart(2, "0")}:${hovered.time.getMinutes().toString().padStart(2, "0")}  ${Math.round(hovered.value)} bpm`
+    : "";
+
+  // Keep tooltip inside SVG bounds
+  const tooltipX = hoveredCoord ? Math.min(Math.max(hoveredCoord.x, padX + 40), width - padX - 40) : 0;
+  const tooltipY = hoveredCoord ? Math.max(hoveredCoord.y - 10, padY + 4) : 0;
 
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${width} ${height + 14}`}
       className="w-full"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Grid lines */}
       <line x1={padX} y1={padY} x2={padX} y2={height} stroke="var(--color-border)" strokeWidth="0.5" />
@@ -251,13 +309,60 @@ function HeartRateChart({ points }: { points: { time: Date; value: number }[] })
 
       {/* Data line */}
       <path
-        d={pathParts.join("")}
+        d={pathD}
         fill="none"
         stroke="var(--color-primary)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+
+      {/* Hover indicator */}
+      {hoveredCoord && (
+        <>
+          {/* Vertical guide line */}
+          <line
+            x1={hoveredCoord.x}
+            y1={padY}
+            x2={hoveredCoord.x}
+            y2={height}
+            stroke="var(--color-primary)"
+            strokeWidth="0.5"
+            strokeDasharray="3,3"
+            opacity="0.5"
+          />
+          {/* Dot on the line */}
+          <circle
+            cx={hoveredCoord.x}
+            cy={hoveredCoord.y}
+            r="3"
+            fill="var(--color-primary)"
+          />
+          {/* Tooltip background */}
+          <rect
+            x={tooltipX - 46}
+            y={tooltipY - 14}
+            width="92"
+            height="16"
+            rx="4"
+            fill="var(--color-card)"
+            stroke="var(--color-border)"
+            strokeWidth="0.5"
+            opacity="0.95"
+          />
+          {/* Tooltip text */}
+          <text
+            x={tooltipX}
+            y={tooltipY - 3}
+            textAnchor="middle"
+            fontSize="9"
+            fill="var(--color-text)"
+            fontFamily="JetBrains Mono, monospace"
+          >
+            {tooltipText}
+          </text>
+        </>
+      )}
 
       {/* Time labels */}
       {labelTimes.map((lt, i) => (
