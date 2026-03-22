@@ -1,9 +1,9 @@
 package com.monika.dashboard.ui.screens
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.monika.dashboard.data.SettingsStore
@@ -25,6 +26,7 @@ import com.monika.dashboard.health.HealthSyncWorker
 import com.monika.dashboard.ui.theme.Border
 import com.monika.dashboard.ui.theme.Primary
 import com.monika.dashboard.ui.theme.Secondary
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,11 +40,40 @@ fun HealthScreen(settings: SettingsStore) {
     // Re-check HC status on each resume (install/permission changes)
     var isAvailable by remember { mutableStateOf(HealthConnectManager.isAvailable(context)) }
     var isInstalled by remember { mutableStateOf(HealthConnectManager.isInstalled(context)) }
+    var permissionsGranted by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Manager is always safe to construct (client is lazy)
+    val hcManager = remember(context) { HealthConnectManager(context) }
+
+    // Permission launcher uses static contract (doesn't need client)
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract(),
+        onResult = {
+            scope.launch {
+                if (isAvailable) {
+                    permissionsGranted = hcManager.getGrantedPermissions().isNotEmpty()
+                }
+            }
+        }
+    )
+
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             isAvailable = HealthConnectManager.isAvailable(context)
             isInstalled = HealthConnectManager.isInstalled(context)
+            if (isAvailable) {
+                try {
+                    val granted = hcManager.getGrantedPermissions()
+                    permissionsGranted = hcManager.allReadPermissions.all { it in granted }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    permissionsGranted = false
+                }
+            } else {
+                permissionsGranted = false
+            }
         }
     }
 
@@ -102,6 +133,15 @@ fun HealthScreen(settings: SettingsStore) {
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("安装")
+                    }
+                } else if (isAvailable && !permissionsGranted) {
+                    OutlinedButton(
+                        onClick = {
+                            permissionLauncher.launch(hcManager.allReadPermissions)
+                        },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("授权")
                     }
                 }
             }

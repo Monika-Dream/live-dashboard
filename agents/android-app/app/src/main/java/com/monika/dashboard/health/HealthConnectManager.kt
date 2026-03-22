@@ -3,9 +3,12 @@ package com.monika.dashboard.health
 import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.network.ReportClient
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -36,6 +39,18 @@ class HealthConnectManager(private val context: Context) {
         HealthConnectClient.getOrCreate(context)
     }
 
+    /** All read permissions the app may request */
+    val allReadPermissions: Set<String> = HealthDataType.entries.map { it.permission }.toSet()
+
+    /** Check which permissions are currently granted */
+    suspend fun getGrantedPermissions(): Set<String> {
+        return client.permissionController.getGrantedPermissions()
+    }
+
+    /** Permission request contract for use in Activity/Compose */
+    fun createPermissionRequestContract() =
+        PermissionController.createRequestPermissionResultContract()
+
     suspend fun readRecords(
         enabledTypes: Set<String>,
         since: Instant
@@ -44,15 +59,36 @@ class HealthConnectManager(private val context: Context) {
         if (!since.isBefore(now)) return emptyList()
         val timeRange = TimeRangeFilter.between(since, now)
 
+        // Check permissions first, only read types with granted permissions
+        val granted = getGrantedPermissions()
+        DebugLog.log("健康", "已授权权限数: ${granted.size}/${allReadPermissions.size}")
+        val permittedTypes = mutableListOf<HealthDataType>()
+        val missingPerms = mutableListOf<String>()
+        for (typeKey in enabledTypes) {
+            val type = HealthDataType.fromKey(typeKey) ?: continue
+            if (type.permission in granted) permittedTypes.add(type)
+            else missingPerms.add(type.displayName)
+        }
+        if (missingPerms.isNotEmpty()) {
+            DebugLog.log("健康", "缺少权限: ${missingPerms.joinToString()}，请点击「授权」")
+            Log.w(TAG, "Missing permissions for: $missingPerms")
+        }
+        DebugLog.log("健康", "将读取 ${permittedTypes.size} 种类型")
+        if (permittedTypes.isEmpty()) return emptyList()
+
         return coroutineScope {
-            val deferreds = enabledTypes.mapNotNull { typeKey ->
-                val type = HealthDataType.fromKey(typeKey) ?: return@mapNotNull null
+            val deferreds = permittedTypes.map { type ->
                 async {
                     try {
-                        readByType(type, timeRange)
+                        val results = readByType(type, timeRange)
+                        if (results.isNotEmpty()) {
+                            DebugLog.log("健康", "${type.displayName}: 读到 ${results.size} 条")
+                        }
+                        results
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        DebugLog.log("健康", "读取${type.displayName}失败: ${e.message}")
                         Log.w(TAG, "Failed to read ${type.key}: ${e.message}")
                         emptyList<ReportClient.HealthRecord>()
                     }

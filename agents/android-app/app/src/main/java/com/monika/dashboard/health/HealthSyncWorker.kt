@@ -93,7 +93,8 @@ class HealthSyncWorker(
 
         return try {
             val manager = HealthConnectManager(applicationContext)
-            val since = Instant.now().minus(30, ChronoUnit.MINUTES)
+            val since = Instant.now().minus(24, ChronoUnit.HOURS)
+            DebugLog.log("健康", "查询范围: 过去24小时, 类型: ${enabledTypes.joinToString()}")
             val records = manager.readRecords(enabledTypes, since)
 
             if (records.isEmpty()) {
