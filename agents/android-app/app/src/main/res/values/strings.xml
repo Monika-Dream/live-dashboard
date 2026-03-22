@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Monika Now</string>
-    <string name="accessibility_description">检测当前前台应用并上报到 Live Dashboard 服务器。</string>
 </resources>

@@ -1,9 +1,10 @@
 package com.monika.dashboard.ui.screens
 
-import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
-import android.text.TextUtils
 import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -18,14 +19,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.health.HealthConnectManager
-import com.monika.dashboard.service.AppMonitorService
-import com.monika.dashboard.service.MusicListenerService
 import com.monika.dashboard.ui.theme.Border
-import com.monika.dashboard.ui.theme.Secondary
 import com.monika.dashboard.ui.theme.TextMuted
+import java.util.Locale
 
 @Composable
 fun StatusScreen() {
@@ -33,29 +33,37 @@ fun StatusScreen() {
     val scrollState = rememberScrollState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Check actual system permission status, refresh on every resume
-    var accessibilityEnabled by remember { mutableStateOf(false) }
-    var notificationEnabled by remember { mutableStateOf(false) }
     var healthAvailable by remember { mutableStateOf(false) }
 
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            accessibilityEnabled = isAccessibilityServiceEnabled(context)
-            notificationEnabled = isNotificationListenerEnabled(context)
             healthAvailable = HealthConnectManager.isAvailable(context)
         }
     }
 
-    // Poll current app/music info every second (these change frequently)
+    // Tick for refreshing debug log and permission states
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(1000)
+            kotlinx.coroutines.delay(3000)
             tick++
         }
     }
-    val currentApp = remember(tick) { AppMonitorService.currentForegroundApp }
-    val currentMusic = remember(tick) { MusicListenerService.currentMusic }
+
+    val pm = remember { context.getSystemService(android.content.Context.POWER_SERVICE) as? PowerManager }
+    var batteryOptimized by remember {
+        mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true)
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryOptimized = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
@@ -64,79 +72,127 @@ fun StatusScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "服务状态",
-            style = MaterialTheme.typography.headlineMedium
-        )
+        // --- Permission & service checks ---
+        Text(text = "权限状态", style = MaterialTheme.typography.titleMedium)
 
-        // Accessibility Service
-        StatusCard(
-            title = "无障碍服务",
-            subtitle = "前台应用检测",
-            isActive = accessibilityEnabled,
-            onAction = {
-                try {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    })
-                } catch (_: Exception) {
-                    Toast.makeText(context, "无法打开设置", Toast.LENGTH_SHORT).show()
-                }
-            },
-            actionLabel = if (accessibilityEnabled) "设置" else "启用"
-        )
+        ServiceStatusRow("Health Connect", healthAvailable) {
+            try {
+                context.startActivity(
+                    Intent("android.health.connect.action.HEALTH_HOME_SETTINGS").apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            } catch (_: Exception) {
+                Toast.makeText(context, "请安装 Health Connect 应用", Toast.LENGTH_SHORT).show()
+            }
+        }
 
-        // Notification Listener
-        StatusCard(
-            title = "通知监听",
-            subtitle = "音乐检测",
-            isActive = notificationEnabled,
-            onAction = {
+        ServiceStatusRow("电池优化已忽略", batteryOptimized) {
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            } catch (e: Exception) {
+                DebugLog.log("设置", "电池优化直接请求失败: ${e.message}")
                 try {
                     context.startActivity(
-                        Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    )
+                } catch (e2: Exception) {
+                    DebugLog.log("设置", "电池优化设置页也无法打开: ${e2.message}")
+                    Toast.makeText(context, "无法打开电池优化设置", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        // Notification permission (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val notifPermGranted = remember(tick) {
+                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            ServiceStatusRow("通知权限", notifPermGranted) {
+                try {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    )
+                } catch (e: Exception) {
+                    DebugLog.log("设置", "无法打开通知设置: ${e.message}")
+                    Toast.makeText(context, "无法打开通知设置", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        // Xiaomi/Redmi autostart
+        val manufacturer = remember { Build.MANUFACTURER.lowercase(Locale.ROOT) }
+        if (manufacturer.contains("xiaomi") || manufacturer.contains("redmi")) {
+            ServiceStatusRow("自启动权限") {
+                try {
+                    context.startActivity(
+                        Intent().apply {
+                            component = android.content.ComponentName(
+                                "com.miui.securitycenter",
+                                "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                            )
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                     )
                 } catch (_: Exception) {
-                    Toast.makeText(context, "无法打开设置", Toast.LENGTH_SHORT).show()
-                }
-            },
-            actionLabel = if (notificationEnabled) "设置" else "启用"
-        )
-
-        // Health Connect
-        StatusCard(
-            title = "Health Connect",
-            subtitle = "健康数据同步",
-            isActive = healthAvailable,
-            onAction = null,
-            actionLabel = null
-        )
-
-        Divider(color = Border, thickness = 1.dp)
-
-        // Current state
-        Text(
-            text = "当前状态",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, Border, RoundedCornerShape(8.dp)),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                InfoRow("前台应用", currentApp.ifEmpty { "未检测到" })
-                val music = currentMusic
-                if (music != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    InfoRow("正在播放", "${music.title}${music.artist?.let { " - $it" } ?: ""}")
-                    music.app?.let { app ->
-                        InfoRow("音乐应用", app)
+                    try {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    } catch (e2: Exception) {
+                        DebugLog.log("设置", "无法打开自启动设置: ${e2.message}")
+                        Toast.makeText(context, "请手动前往 设置→应用→自启动管理", Toast.LENGTH_LONG).show()
                     }
+                }
+            }
+        }
+
+        // OEM-specific guidance
+        val oemTip = when {
+            manufacturer.contains("xiaomi") || manufacturer.contains("redmi") ->
+                "小米/Redmi：设置 → 应用设置 → 应用管理 → Live Dashboard → 省电策略 → 无限制，并开启「自启动」"
+            manufacturer.contains("huawei") || manufacturer.contains("honor") ->
+                "华为/荣耀：设置 → 电池 → 启动管理 → Live Dashboard → 手动管理 → 三个开关全部打开"
+            manufacturer.contains("samsung") ->
+                "三星：设置 → 电池 → 后台使用限制 → 从「深度睡眠」列表中移除 Live Dashboard"
+            manufacturer.contains("oppo") || manufacturer.contains("realme") || manufacturer.contains("oneplus") ->
+                "OPPO/Realme/一加：设置 → 电池 → 更多电池设置 → 关闭「智能功耗管理」，并在应用管理中允许后台运行和自启动"
+            manufacturer.contains("vivo") ->
+                "vivo：设置 → 电池 → 后台功耗管理 → Live Dashboard → 允许后台高耗电"
+            else -> null
+        }
+        if (oemTip != null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "厂商特殊设置",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = oemTip,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
                 }
             }
         }
@@ -149,10 +205,7 @@ fun StatusScreen() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "调试日志",
-                style = MaterialTheme.typography.titleMedium
-            )
+            Text(text = "调试日志", style = MaterialTheme.typography.titleMedium)
             TextButton(onClick = { DebugLog.clear() }) {
                 Text("清空", style = MaterialTheme.typography.bodySmall)
             }
@@ -198,76 +251,6 @@ fun StatusScreen() {
     }
 }
 
-/** Check if our AccessibilityService is enabled in system settings */
-private fun isAccessibilityServiceEnabled(context: android.content.Context): Boolean {
-    val expected = ComponentName(context, AppMonitorService::class.java).flattenToString()
-    val enabledServices = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
-    return TextUtils.SimpleStringSplitter(':').apply { setString(enabledServices) }
-        .any { it.equals(expected, ignoreCase = true) }
-}
-
-/** Check if our NotificationListenerService is enabled in system settings */
-private fun isNotificationListenerEnabled(context: android.content.Context): Boolean {
-    val expected = ComponentName(context, MusicListenerService::class.java).flattenToString()
-    val enabledListeners = Settings.Secure.getString(
-        context.contentResolver,
-        "enabled_notification_listeners"
-    ) ?: return false
-    return enabledListeners.split(":").any { it.equals(expected, ignoreCase = true) }
-}
-
-@Composable
-private fun StatusCard(
-    title: String,
-    subtitle: String,
-    isActive: Boolean,
-    onAction: (() -> Unit)?,
-    actionLabel: String?
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                1.dp,
-                if (isActive) Secondary.copy(alpha = 0.5f) else Border,
-                RoundedCornerShape(8.dp)
-            ),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Status dot
-            Surface(
-                modifier = Modifier.size(10.dp),
-                shape = RoundedCornerShape(5.dp),
-                color = if (isActive) Secondary else TextMuted.copy(alpha = 0.4f)
-            ) {}
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
-                Text(text = subtitle, style = MaterialTheme.typography.bodySmall)
-            }
-
-            if (onAction != null && actionLabel != null) {
-                OutlinedButton(
-                    onClick = onAction,
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Text(actionLabel, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun InfoRow(label: String, value: String) {
     Row(
@@ -277,12 +260,80 @@ private fun InfoRow(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.weight(0.4f)
+            modifier = Modifier.weight(0.3f)
         )
         Text(
             text = value,
             style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.weight(0.6f)
+            modifier = Modifier.weight(0.7f)
         )
+    }
+}
+
+/** Status row with check/cross and optional fix button */
+@Composable
+private fun ServiceStatusRow(label: String, ok: Boolean, onFix: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = if (ok) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.errorContainer
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (ok) "✓" else "✗",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (ok) MaterialTheme.colorScheme.onSecondaryContainer
+                            else MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (ok) MaterialTheme.colorScheme.onSecondaryContainer
+                            else MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+            if (!ok) {
+                TextButton(onClick = onFix) {
+                    Text("去设置")
+                }
+            }
+        }
+    }
+}
+
+/** Status row without status check (manual verification needed, e.g. Xiaomi autostart) */
+@Composable
+private fun ServiceStatusRow(label: String, onAction: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$label（请确认已开启）",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            TextButton(onClick = onAction) {
+                Text("去设置")
+            }
+        }
     }
 }
