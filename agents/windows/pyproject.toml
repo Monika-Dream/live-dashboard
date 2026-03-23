@@ -1,0 +1,13 @@
+[project]
+name = "viewme"
+version = "0.1.0"
+description = "Windows agent 4 viewme"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "nuitka>=4.0.6",
+    "psutil>=5.9",
+    "requests>=2.28",
+    "rich>=14.3.3",
+    "zstandard>=0.25.0",
+]

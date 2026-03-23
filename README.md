@@ -304,25 +304,9 @@ cp -r out/* ../backend/public/
 
 ### Windows Agent
 
-1. 安装 Python 3.10+ 及依赖：
-   ```bash
-   pip install -r agents/windows/requirements.txt
-   ```
-
-2. 创建 `agents/windows/config.json`（此文件已 gitignore）：
-   ```json
-   {
-     "server_url": "https://your-domain.com",
-     "token": "your_device_token_here",
-     "interval_seconds": 5,
-     "heartbeat_seconds": 60,
-     "idle_threshold_seconds": 300
-   }
-   ```
-
-3. 运行：`python agents/windows/agent.py`
-
-4. 或打包为 .exe：运行 `build.bat`，然后使用 `install-task.bat` 设置开机自启
+1. 需要已经安装的uv。
+2. `uv run build.py`跟随指示输入信息
+3. 目录下就会出现`main.exe`该exe可以独立运行，拖出来即可，其中包含token，切勿泄露。
 
 **电量**：笔记本用户通过 `psutil.sensors_battery()` 自动获取电池信息。台式机不显示电量（正常现象）。
 
@@ -385,7 +369,7 @@ cp -r out/* ../backend/public/
    </dict>
    </plist>
    EOF
-
+   
    # 加载（立即生效，登录后自动启动）
    launchctl load ~/Library/LaunchAgents/com.live-dashboard.agent.plist
    ```
