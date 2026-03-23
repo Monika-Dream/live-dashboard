@@ -304,9 +304,14 @@ def validate_server_url(url: str) -> None:
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
+
+def get_resource_path(relative_path):
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
 def load_config() -> dict:
     """Load config.json from the same directory as this script."""
-    config_path = base_dir / "config.json"
+    config_path = get_resource_path("config.json")
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
