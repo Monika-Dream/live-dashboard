@@ -84,6 +84,8 @@ class HealthSyncWorker(
             return Result.success()
         }
 
+        val manager = HealthConnectManager(applicationContext)
+
         val client = try {
             ReportClient(url, token)
         } catch (e: Exception) {
@@ -92,7 +94,6 @@ class HealthSyncWorker(
         }
 
         return try {
-            val manager = HealthConnectManager(applicationContext)
             val since = Instant.now().minus(3, ChronoUnit.HOURS)
             DebugLog.log("健康", "同步中, 类型: ${enabledTypes.joinToString()}")
             val records = manager.readRecords(enabledTypes, since)

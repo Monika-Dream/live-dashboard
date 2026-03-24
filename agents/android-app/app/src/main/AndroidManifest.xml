@@ -27,6 +27,9 @@
     <uses-permission android:name="android.permission.health.READ_HYDRATION" />
     <uses-permission android:name="android.permission.health.READ_NUTRITION" />
 
+    <!-- Background read permission (Android 14+, required for WorkManager health sync) -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+
     <application
         android:name=".DashboardApp"
         android:allowBackup="false"

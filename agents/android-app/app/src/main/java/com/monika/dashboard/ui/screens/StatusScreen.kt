@@ -82,7 +82,8 @@ fun StatusScreen() {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                DebugLog.log("设置", "无法打开 Health Connect 设置: ${e.message}")
                 Toast.makeText(context, "请安装 Health Connect 应用", Toast.LENGTH_SHORT).show()
             }
         }
@@ -145,7 +146,8 @@ fun StatusScreen() {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                     )
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    DebugLog.log("设置", "小米自启动页打开失败: ${e.message}")
                     try {
                         context.startActivity(
                             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -154,7 +156,7 @@ fun StatusScreen() {
                             }
                         )
                     } catch (e2: Exception) {
-                        DebugLog.log("设置", "无法打开自启动设置: ${e2.message}")
+                        DebugLog.log("设置", "应用详情页也无法打开: ${e2.message}")
                         Toast.makeText(context, "请手动前往 设置→应用→自启动管理", Toast.LENGTH_LONG).show()
                     }
                 }

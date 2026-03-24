@@ -52,7 +52,14 @@ fun HealthScreen(settings: SettingsStore) {
         onResult = {
             scope.launch {
                 if (isAvailable) {
-                    permissionsGranted = hcManager.getGrantedPermissions().isNotEmpty()
+                    try {
+                        val granted = hcManager.getGrantedPermissions()
+                        permissionsGranted = hcManager.dataReadPermissions.all { it in granted }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        permissionsGranted = false
+                    }
                 }
             }
         }
@@ -65,7 +72,7 @@ fun HealthScreen(settings: SettingsStore) {
             if (isAvailable) {
                 try {
                     val granted = hcManager.getGrantedPermissions()
-                    permissionsGranted = hcManager.allReadPermissions.all { it in granted }
+                    permissionsGranted = hcManager.dataReadPermissions.all { it in granted }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
@@ -137,7 +144,7 @@ fun HealthScreen(settings: SettingsStore) {
                 } else if (isAvailable && !permissionsGranted) {
                     OutlinedButton(
                         onClick = {
-                            permissionLauncher.launch(hcManager.allReadPermissions)
+                            permissionLauncher.launch(hcManager.dataReadPermissions)
                         },
                         shape = RoundedCornerShape(8.dp)
                     ) {
