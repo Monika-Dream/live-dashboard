@@ -1,0 +1,7 @@
+{
+  "server_url": "https://your-domain.com",
+  "token": "YOUR_TOKEN_HERE",
+  "interval_seconds": 5,
+  "heartbeat_seconds": 60,
+  "idle_threshold_seconds": 300
+}

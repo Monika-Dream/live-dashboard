@@ -311,7 +311,11 @@ def load_config() -> dict:
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
     except FileNotFoundError:
-        log.error("config.json not found at %s", config_path)
+        log.error(
+            "config.json not found at %s — "
+            "please copy config.example.json to config.json and fill in your settings",
+            config_path,
+        )
         sys.exit(1)
     except PermissionError:
         log.error("config.json: permission denied — %s", config_path)

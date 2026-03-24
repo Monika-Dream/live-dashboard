@@ -407,6 +407,53 @@ Android 客户端无需 root，通过 Health Connect 上传健康数据，并可
 
 源码与技术细节见 [`android-source` 分支](https://github.com/Monika-Dream/live-dashboard/tree/android-source/agents/android-app)。
 
+## 使用预构建 Docker 镜像（推荐）
+
+不想 clone 源码本地编译？可以直接使用 GitHub Container Registry 上的预构建镜像。
+
+### 1. 创建配置文件
+
+新建一个空目录，下载模板：
+
+```bash
+mkdir live-dashboard && cd live-dashboard
+
+# 下载 docker-compose 和 .env 模板
+curl -LO https://raw.githubusercontent.com/Monika-Dream/live-dashboard/main/docker-compose.example.yml
+curl -LO https://raw.githubusercontent.com/Monika-Dream/live-dashboard/main/.env.example
+
+# 创建配置
+cp docker-compose.example.yml docker-compose.yml
+cp .env.example .env
+```
+
+### 2. 编辑 .env
+
+```bash
+vim .env   # 或用 nano
+```
+
+填入你的设备令牌和 HASH_SECRET（生成方式见下方 [环境变量](#环境变量) 章节）。
+
+> **安全提醒**：永远不要把真实 token 写进 `docker-compose.yml`，务必使用 `.env` 文件，且不要提交 `.env` 到版本控制。
+
+### 3. 启动
+
+```bash
+docker compose up -d
+```
+
+访问 `http://your-server-ip:3000` 即可。生产环境建议配合 Nginx 反向代理 + HTTPS（参考下方 [VPS 部署指南](#vps-部署指南docker--nginx) 的第五步）。
+
+### 更新镜像
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+---
+
 ## VPS 部署指南（Docker + Nginx）
 
 以下是从零开始在 VPS 上部署的完整步骤。
