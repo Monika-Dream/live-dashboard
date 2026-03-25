@@ -1,0 +1,86 @@
+name: Build Agents
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      windows_ref:
+        description: 'Windows source branch/tag/SHA (default: windows-source)'
+        default: 'windows-source'
+      macos_ref:
+        description: 'macOS source branch/tag/SHA (default: macos-source)'
+        default: 'macos-source'
+
+# Architecture: Agent source code lives on dedicated branches (windows-source,
+# macos-source), not on main. Tag-triggered builds checkout the latest HEAD of
+# each source branch. For reproducible builds, use workflow_dispatch with
+# specific commit SHAs.
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.windows_ref || 'windows-source' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r agents/windows/requirements.txt pyinstaller
+      - name: Build executable
+        working-directory: agents/windows
+        run: pyinstaller --onefile --noconsole --name live-dashboard-agent agent.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-agent
+          path: agents/windows/dist/live-dashboard-agent.exe
+
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.macos_ref || 'macos-source' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r agents/macos/requirements.txt pyinstaller
+      - name: Build executable
+        working-directory: agents/macos
+        run: pyinstaller --onefile --windowed --name live-dashboard-agent agent.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-agent
+          path: agents/macos/dist/live-dashboard-agent
+
+  release:
+    needs: [build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-agent
+          path: windows-agent
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-agent
+          path: macos-agent
+      - name: Prepare release assets
+        run: |
+          mv windows-agent/live-dashboard-agent.exe .
+          cd macos-agent && zip ../live-dashboard-agent-macos.zip * && cd ..
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            live-dashboard-agent.exe
+            live-dashboard-agent-macos.zip

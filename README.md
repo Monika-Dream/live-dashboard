@@ -163,15 +163,11 @@ docker compose pull && docker compose up -d
 
 从 [GitHub Releases](https://github.com/Monika-Dream/live-dashboard/releases) 下载对应平台的 Agent：
 
-| 平台 | 下载 | 需要 |
+| 平台 | 下载 | 源码 |
 |------|------|------|
-| Windows | `windows-agent.zip` | Python 3.10+ |
-| macOS | `macos-agent.zip` | Python 3.10+, 辅助功能权限 |
-| Android | `live-dashboard.apk` | Android 8.0+, Health Connect |
-
-> 也可以直接 clone 仓库，Agent 源码在 `agents/` 目录下。
->
-> **macOS Agent 注意**：系统托盘、音频检测和全屏检测功能已实现，但由于缺少 macOS 测试环境，尚未经过实机验证。如有问题欢迎提 issue。
+| Windows | `live-dashboard-agent.exe` | [`windows-source` 分支](https://github.com/Monika-Dream/live-dashboard/tree/windows-source/agents/windows) |
+| macOS | `macos-agent.zip` | [`macos-source` 分支](https://github.com/Monika-Dream/live-dashboard/tree/macos-source/agents/macos) |
+| Android | `live-dashboard.apk` | [`android-source` 分支](https://github.com/Monika-Dream/live-dashboard/tree/android-source/agents/android-app) |
 
 ### Windows Agent
 
@@ -746,30 +742,17 @@ live-dashboard/
 │           ├── hooks/            # useDashboard（轮询 hook）
 │           └── lib/              # API 客户端 + 戏剧化应用描述
 │
-├── agents/
-│   ├── windows/                  # Windows Agent
-│   │   ├── agent.py              # 主脚本（Win32 API + 电量）
-│   │   ├── config.json           # 配置文件（已 gitignore）
-│   │   ├── config.example.json   # 配置模板
-│   │   ├── requirements.txt      # Python 依赖
-│   │   ├── build.bat             # PyInstaller 打包
-│   │   └── install-task.bat      # Windows 计划任务自启动
-│   │
-│   ├── macos/                    # macOS Agent
-│   │   ├── agent.py              # 主脚本（AppleScript + psutil）
-│   │   ├── config.json           # 配置文件（已 gitignore）
-│   │   ├── config.json.example   # 配置模板
-│   │   └── requirements.txt      # Python 依赖
-│   │
-│   └── android-app/              # Android App（Health Connect 健康数据）
-│       ├── live-dashboard-v2.0.apk # 编译产物
-│       └── README.md             # 下载说明（源码在 android-source 分支）
-│
 ├── deploy/nginx/                 # Nginx 配置示例
+├── .github/workflows/            # CI：自动构建 Agent 并发布到 Release
 ├── start.sh                      # 一键本地启动脚本
 ├── Dockerfile                    # 多阶段构建（前端 + 后端）
 ├── docker-compose.yml            # 容器编排
 └── .env.example                  # 环境变量模板
+
+# Agent 源码在独立分支：
+# ├── windows-source/agents/windows/   # Windows Agent（Python + pystray）
+# ├── macos-source/agents/macos/       # macOS Agent（Python + AppleScript）
+# └── android-source/agents/android-app/ # Android App（Kotlin + Health Connect）
 ```
 
 ## 安全设计
