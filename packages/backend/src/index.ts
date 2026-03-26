@@ -8,6 +8,7 @@ import { handleHealth } from "./routes/health";
 import { handleHealthData, handleHealthDataQuery } from "./routes/health-data";
 import { handleHealthWebhook } from "./routes/health-webhook";
 import { handleConfig } from "./routes/config";
+import { injectSiteConfig } from "./services/site-config";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
 import "./services/cleanup";
@@ -28,6 +29,17 @@ try {
   staticEnabled = true;
 } catch {
   console.warn(`[server] Static dir not found: ${STATIC_ROOT} — static files won't be served`);
+}
+
+async function serveStaticFile(realFile: string): Promise<Response> {
+  if (realFile.endsWith(".html")) {
+    const html = await Bun.file(realFile).text();
+    return new Response(injectSiteConfig(html), {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+
+  return new Response(Bun.file(realFile));
 }
 
 const server = Bun.serve({
@@ -102,12 +114,12 @@ const server = Bun.serve({
                 // Serve from the resolved real path
                 const file = Bun.file(realFile);
                 if (await file.exists()) {
-                  return new Response(file);
+                  return serveStaticFile(realFile);
                 }
                 // SPA fallback: file not found (or is a directory), serve index.html
                 const indexFile = Bun.file(`${REAL_STATIC_ROOT}/index.html`);
                 if (await indexFile.exists()) {
-                  return new Response(indexFile);
+                  return serveStaticFile(`${REAL_STATIC_ROOT}/index.html`);
                 }
                 response = Response.json({ error: "Not found" }, { status: 404 });
               }
@@ -115,7 +127,7 @@ const server = Bun.serve({
               // realpath fails if file doesn't exist — try SPA fallback
               const indexFile = Bun.file(`${REAL_STATIC_ROOT}/index.html`);
               if (await indexFile.exists()) {
-                return new Response(indexFile);
+                return serveStaticFile(`${REAL_STATIC_ROOT}/index.html`);
               }
               response = Response.json({ error: "Not found" }, { status: 404 });
             }

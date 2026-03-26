@@ -11,12 +11,14 @@ import DeviceCard from "@/components/DeviceCard";
 import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
 import HealthData from "@/components/HealthData";
+import SiteMetadataSync from "@/components/SiteMetadataSync";
 
 export default function Home() {
   const config = useConfigLoader();
 
   return (
     <ConfigContext.Provider value={config}>
+      <SiteMetadataSync />
       <HomeInner />
     </ConfigContext.Provider>
   );
