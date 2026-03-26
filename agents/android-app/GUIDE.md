@@ -32,7 +32,7 @@
 
 ### 健康数据同步流程
 1. 用户在 HealthScreen 授权 Health Connect 权限
-2. 若设备开放 `FEATURE_READ_HEALTH_DATA_IN_BACKGROUND`（通常为 Android 15+），再额外授权后台读取权限
+2. 若设备开放 `FEATURE_READ_HEALTH_DATA_IN_BACKGROUND`（以设备与 Health Connect 的 feature 检测结果为准），再额外授权后台读取权限
 3. 选择数据类型 + 同步间隔
 4. `HealthSyncWorker` 通过 WorkManager 定时运行
 5. 从 Health Connect 读取 → POST 到 `/api/health-data`

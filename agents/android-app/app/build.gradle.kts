@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.monika.dashboard"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.monika.dashboard"
@@ -70,7 +70,7 @@ dependencies {
 
     // Health Connect background-read APIs are available here while staying
     // compatible with the current compileSdk / Android Gradle Plugin versions.
-    implementation("androidx.health.connect:connect-client:1.1.0-beta01")
+    implementation("androidx.health.connect:connect-client:1.1.0")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")

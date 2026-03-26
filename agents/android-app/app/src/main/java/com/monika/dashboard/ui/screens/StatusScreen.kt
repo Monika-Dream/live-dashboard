@@ -230,9 +230,9 @@ fun StatusScreen() {
                             !needsBgPerm -> "系统不需要额外后台读取权限，后台同步可直接工作"
                             bgEnabled -> "已授权后台读取健康数据，将按设定间隔自动同步"
                             bgFeatureCheckFailed ->
-                                "后台读取能力检测失败：${backgroundReadAvailability?.errorMessage ?: "未知错误"}\n如果你是 Android 15+ 设备，可先尝试授权；实际同步时也会再次校验。"
+                                "后台读取能力检测失败：${backgroundReadAvailability?.errorMessage ?: "未知错误"}\n是否可用以当前设备与 Health Connect 的 feature 检测结果为准；你仍可先尝试授权，实际同步时也会再次校验。"
                             bgUnavailable ->
-                                "当前设备或 Health Connect 版本未开放后台读取。通常需要 Android 15+ 或支持该特性的系统模块。\n打开 APP 时会自动同步当天数据"
+                                "当前设备或 Health Connect 版本未开放后台读取。是否支持以当前设备与 Health Connect 的 feature 检测结果为准。\n打开 APP 时会自动同步当天数据"
                             else ->
                                 "后台读取权限未授权，请在 Health Connect 中开启\n当前打开 APP 时会自动同步当天数据"
                         },

@@ -198,11 +198,11 @@ fun HealthScreen(settings: SettingsStore) {
                     Text(
                         text = when {
                             backgroundFeatureAvailable && backgroundPermissionGranted ->
-                                "后台读取权限已授权；在支持该特性的设备（通常是 Android 15+）上会按设定间隔自动同步。"
+                                "后台读取权限已授权；是否支持后台自动同步以当前设备与 Health Connect 的 feature 检测结果为准。"
                             backgroundFeatureAvailable ->
                                 "此设备已开放后台读取能力，但还未授权后台读取权限。再授权一次即可启用后台自动同步。"
                             backgroundFeatureCheckFailed ->
-                                "暂时无法确认后台读取能力。如果你是 Android 15+ 设备，可尝试授权后台同步；Worker 执行时也会再次校验。"
+                                "暂时无法确认后台读取能力。是否可用以当前设备与 Health Connect 的 feature 检测结果为准；你仍可尝试授权后台同步，Worker 执行时也会再次校验。"
                             else ->
                                 "当前设备或 Health Connect 版本未开放后台读取。打开 APP 时仍会自动前台同步当天数据。"
                         },
