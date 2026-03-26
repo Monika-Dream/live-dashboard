@@ -6,6 +6,12 @@ import type { SiteConfig } from "@/lib/api";
 
 const ConfigContext = createContext<SiteConfig>(defaultConfig);
 const PLACEHOLDER_PREFIX = "__LIVE_DASHBOARD_";
+const serverRenderConfig: SiteConfig = {
+  displayName: "__LIVE_DASHBOARD_DISPLAY_NAME__",
+  siteTitle: "__LIVE_DASHBOARD_SITE_TITLE__",
+  siteDescription: "__LIVE_DASHBOARD_SITE_DESCRIPTION__",
+  siteFavicon: "/__LIVE_DASHBOARD_SITE_FAVICON__",
+};
 
 function readDocumentValue(value: string | null | undefined, fallback: string): string {
   const trimmed = value?.trim();
@@ -17,7 +23,7 @@ function readDocumentValue(value: string | null | undefined, fallback: string): 
 
 function getInitialConfig(): SiteConfig {
   if (typeof document === "undefined") {
-    return defaultConfig;
+    return serverRenderConfig;
   }
 
   const displayName = readDocumentValue(
