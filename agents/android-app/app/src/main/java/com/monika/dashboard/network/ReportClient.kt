@@ -1,5 +1,6 @@
 package com.monika.dashboard.network
 
+import com.monika.dashboard.isAllowedDashboardUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -7,26 +8,23 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.net.URI
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /**
- * HTTP client for reporting app activity and health data.
- * All methods perform synchronous IO — call from background threads only.
+ * 负责向后端上报活动和健康数据。
+ * 所有方法都是同步 IO，只能在后台线程中调用。
  */
 class ReportClient(
     private val serverUrl: String,
     private val token: String
 ) {
     init {
-        val uri = URI(serverUrl)
-        val scheme = uri.scheme ?: ""
-        val host = uri.host ?: ""
-        require(
-            scheme == "https" ||
-            (scheme == "http" && (host == "localhost" || host == "127.0.0.1"))
-        ) { "Only HTTPS or http://localhost allowed" }
+        require(isAllowedDashboardUrl(serverUrl)) {
+            "Only HTTPS or local/private HTTP allowed"
+        }
     }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
@@ -47,7 +45,7 @@ class ReportClient(
         val body = JSONObject().apply {
             put("app_id", appId)
             put("window_title", windowTitle)
-            put("timestamp", System.currentTimeMillis())
+            put("timestamp", Instant.now().toString())
 
             val extra = JSONObject()
             batteryPercent?.let { extra.put("battery_percent", it) }

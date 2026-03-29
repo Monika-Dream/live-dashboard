@@ -9,6 +9,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import android.net.Uri
 import android.util.Log
+import com.monika.dashboard.isAllowedDashboardUrl
 import com.monika.dashboard.service.HeartbeatWorker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -17,7 +18,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class SettingsStore(private val context: Context) {
 
-    // --- Non-sensitive settings via DataStore ---
+    // 非敏感配置走 DataStore，避免和密钥存储耦合。
 
     private object Keys {
         val SERVER_URL = stringPreferencesKey("server_url")
@@ -54,7 +55,7 @@ class SettingsStore(private val context: Context) {
     }
 
     suspend fun setServerUrl(url: String) {
-        require(validateUrl(url)) { "Invalid URL: must be HTTPS or http://localhost" }
+        require(validateUrl(url)) { "Invalid URL: must be HTTPS or local/private HTTP" }
         context.dataStore.edit { it[Keys.SERVER_URL] = url.trim() }
     }
 
@@ -79,7 +80,7 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[Keys.MONITORING_ENABLED] = enabled }
     }
 
-    /** Update last sync timestamp with compare-and-set (only advances forward). */
+    /** 同步游标只允许前进，避免旧任务把新游标回写覆盖。 */
     suspend fun setLastSyncTimestamp(millis: Long) {
         context.dataStore.edit { prefs ->
             val current = prefs[Keys.LAST_SYNC_TIMESTAMP] ?: 0L
@@ -89,7 +90,7 @@ class SettingsStore(private val context: Context) {
         }
     }
 
-    // --- Sensitive token via EncryptedSharedPreferences ---
+    // 敏感 Token 单独走加密存储。
 
     private val encryptedPrefs: SharedPreferences? by lazy {
         try {
@@ -128,14 +129,8 @@ class SettingsStore(private val context: Context) {
         fun validateUrl(url: String): Boolean {
             val trimmed = url.trim()
             if (trimmed.isEmpty()) return false
-            val uri = Uri.parse(trimmed)
-            val scheme = uri.scheme ?: return false
-            val host = uri.host ?: return false
-            return when (scheme) {
-                "https" -> true
-                "http" -> host == "localhost" || host == "127.0.0.1"
-                else -> false
-            }
+            if (runCatching { Uri.parse(trimmed) }.getOrNull() == null) return false
+            return isAllowedDashboardUrl(trimmed)
         }
     }
 }

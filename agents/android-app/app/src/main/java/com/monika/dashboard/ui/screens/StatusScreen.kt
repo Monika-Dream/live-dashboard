@@ -24,10 +24,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.health.BackgroundReadAvailability
 import com.monika.dashboard.health.HealthConnectManager
+import com.monika.dashboard.monitor.CurrentAppDetector
+import com.monika.dashboard.monitor.MusicMetadataProvider
 import com.monika.dashboard.ui.theme.Border
 import com.monika.dashboard.ui.theme.TextMuted
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import java.util.Locale
@@ -41,11 +42,18 @@ fun StatusScreen() {
     var healthAvailable by remember { mutableStateOf(false) }
     var backgroundReadAvailability by remember { mutableStateOf<BackgroundReadAvailability?>(null) }
     var bgPermGranted by remember { mutableStateOf(false) }
-    // Always create manager (constructor is cheap, client is lazy)
+    var usageAccessGranted by remember { mutableStateOf(false) }
+    var accessibilityAccessGranted by remember { mutableStateOf(false) }
+    var notificationAccessGranted by remember { mutableStateOf(false) }
     val hcManager = remember(context) { HealthConnectManager(context.applicationContext) }
+    val currentAppDetector = remember(context) { CurrentAppDetector(context.applicationContext) }
+    val musicProvider = remember(context) { MusicMetadataProvider(context.applicationContext) }
 
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            usageAccessGranted = currentAppDetector.hasUsageAccess()
+            accessibilityAccessGranted = currentAppDetector.hasAccessibilityAccess()
+            notificationAccessGranted = musicProvider.hasNotificationAccess()
             healthAvailable = HealthConnectManager.isAvailable(context)
             if (healthAvailable) {
                 val (availability, permGranted) = withContext(Dispatchers.IO) {
@@ -70,7 +78,7 @@ fun StatusScreen() {
         }
     }
 
-    // Tick for refreshing debug log and permission states
+    // 定时刷新调试日志和权限状态，避免用户授权后必须手动重进页面。
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -101,7 +109,7 @@ fun StatusScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // --- Permission & service checks ---
+        // --- 权限与服务状态 ---
         Text(text = "权限状态", style = MaterialTheme.typography.titleMedium)
 
         ServiceStatusRow("Health Connect", healthAvailable) {
@@ -140,7 +148,34 @@ fun StatusScreen() {
             }
         }
 
-        // Notification permission (Android 13+)
+        ServiceStatusRow("应用使用情况权限（前台应用识别）", usageAccessGranted) {
+            try {
+                context.startActivity(CurrentAppDetector.usageAccessSettingsIntent())
+            } catch (e: Exception) {
+                DebugLog.log("设置", "无法打开应用使用情况权限页: ${e.message}")
+                Toast.makeText(context, "无法打开应用使用情况权限设置", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        ServiceStatusRow("无障碍服务（更稳定的前台应用识别）", accessibilityAccessGranted) {
+            try {
+                context.startActivity(CurrentAppDetector.accessibilitySettingsIntent())
+            } catch (e: Exception) {
+                DebugLog.log("设置", "无法打开无障碍设置页: ${e.message}")
+                Toast.makeText(context, "无法打开无障碍设置", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        ServiceStatusRow("通知访问（音乐识别）", notificationAccessGranted) {
+            try {
+                context.startActivity(MusicMetadataProvider.notificationListenerSettingsIntent())
+            } catch (e: Exception) {
+                DebugLog.log("设置", "无法打开通知访问设置页: ${e.message}")
+                Toast.makeText(context, "无法打开通知访问设置", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Android 13+ 额外检查通知运行时权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val notifPermGranted = remember(tick) {
                 context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
@@ -161,7 +196,7 @@ fun StatusScreen() {
             }
         }
 
-        // Background health sync status
+        // 后台健康同步状态
         if (healthAvailable) {
             val needsBgPerm = hcManager.needsBackgroundPermission
             val bgFeatureAvailable = backgroundReadAvailability?.isAvailable == true
@@ -198,7 +233,7 @@ fun StatusScreen() {
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
-                        // Show "去授权" button when permission can be granted but hasn't been
+                        // 只有设备支持且还没授权时，才展示“去授权”入口。
                         if (needsBgPerm && !bgPermGranted && (bgFeatureAvailable || bgFeatureCheckFailed)) {
                             TextButton(onClick = {
                                 try {
@@ -249,12 +284,19 @@ fun StatusScreen() {
             shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-            Text(
-                text = "如遇同步异常，请在系统设置中检查电池优化和自启动权限",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
-                modifier = Modifier.padding(12.dp)
-            )
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "当前应用识别现在支持两条通道：无障碍服务优先，应用使用情况访问兜底；音乐识别依赖“通知访问”。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "如果你只开了 UsageStats，没有开无障碍服务，后台识别会更容易延迟。如遇同步异常，再检查电池优化和自启动权限。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted,
+                )
+            }
         }
 
         // Xiaomi/Redmi autostart

@@ -10,7 +10,7 @@
 
 ## 这个分支包含什么
 
-Android 客户端是一个 Kotlin + Jetpack Compose 应用，通过 Health Connect 上传健康数据（步数、心率、睡眠等），并可选开启心跳上报（在线状态 + 电量）。无需 root。
+Android 客户端是一个 Kotlin + Jetpack Compose 应用，通过 Health Connect 上传健康数据（步数、心率、睡眠等），并可选开启心跳上报（在线状态 + 电量 + 当前应用 + 音乐信息）。无需 root。
 
 ### 功能
 
@@ -20,7 +20,9 @@ Android 客户端是一个 Kotlin + Jetpack Compose 应用，通过 Health Conne
 | **增量同步** | DataStore 持久化 `lastSyncTimestamp`，增量查询（带 5 分钟重叠窗口），服务端去重 |
 | **全量同步** | 健康页面「全量同步」按钮，强制 7 天回溯查询，防止时间戳过期 |
 | **后台静默同步** | 三态特性检测（可用/不支持/检测异常），Android 15+ 支持后台自动同步 |
-| **心跳上报** | 可选功能，10–50 秒间隔（默认 30 秒），上报在线状态和电池信息 |
+| **当前应用检测** | 基于 UsageStats best effort 识别前台应用，无 root，不读取页面内容 |
+| **音乐检测** | 基于 MediaSession + 通知访问读取正在播放的歌曲信息 |
+| **心跳上报** | 可选功能，10–50 秒间隔（默认 30 秒），上报在线状态、电池、当前应用和音乐信息 |
 | **电量上报** | 自动上报电池电量和充电状态 |
 | **连接状态检测** | 每 5 秒测试服务器连接，顶栏实时显示连接状态 |
 | **诊断日志** | APP 内 DebugLog 页面查看同步日志，方便排查问题 |
@@ -83,6 +85,6 @@ cd agents/android-app
 
 详见 [`GUIDE.md`](agents/android-app/GUIDE.md)，包含：
 - 心跳流程、连接检测流程、健康数据同步流程
-- 设计决策（为什么不检测前台应用、为什么用 WorkManager 自调度等）
+- 设计决策（为什么前台应用检测是 best effort、为什么用 WorkManager 自调度等）
 - API 接口和 DataStore 配置键
 - 常见问题排查
