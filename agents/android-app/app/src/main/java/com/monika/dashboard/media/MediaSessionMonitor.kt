@@ -1,6 +1,5 @@
 package com.monika.dashboard.media
 
-import android.content.ComponentName
 import android.content.Context
 import android.media.MediaMetadata
 import android.media.session.MediaController
@@ -33,10 +32,9 @@ class MediaSessionMonitor(
     private val callbacks = mutableMapOf<String, MediaController.Callback>()
 
     fun start() {
-        val componentName = ComponentName(context, MediaNotificationListenerService::class.java)
         runCatching {
-            mediaSessionManager.addOnActiveSessionsChangedListener(listener, componentName)
-            processControllers(mediaSessionManager.getActiveSessions(componentName).orEmpty())
+            mediaSessionManager.addOnActiveSessionsChangedListener(listener, null)
+            processControllers(mediaSessionManager.getActiveSessions(null).orEmpty())
         }
         handler.postDelayed(pollRunnable, 3000L)
         Log.i("MediaSession", "Monitor started")
@@ -49,7 +47,7 @@ class MediaSessionMonitor(
         }
         callbacks.forEach { (token, callback) ->
             runCatching {
-                mediaSessionManager.getActiveSessions(ComponentName(context, MediaNotificationListenerService::class.java))
+                mediaSessionManager.getActiveSessions(null)
                     .firstOrNull { it.sessionToken.toString() == token }
                     ?.unregisterCallback(callback)
             }
@@ -59,8 +57,7 @@ class MediaSessionMonitor(
     }
 
     private fun pollActiveSessions() {
-        val componentName = ComponentName(context, MediaNotificationListenerService::class.java)
-        val controllers = runCatching { mediaSessionManager.getActiveSessions(componentName).orEmpty() }.getOrDefault(emptyList())
+        val controllers = runCatching { mediaSessionManager.getActiveSessions(null).orEmpty() }.getOrDefault(emptyList())
         processControllers(controllers)
 
         val hasPlayingSession = controllers.any { controller ->

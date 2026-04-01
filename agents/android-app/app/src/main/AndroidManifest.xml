@@ -64,17 +64,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Media sync notification listener service -->
-        <service
-            android:name=".media.MediaNotificationListenerService"
-            android:exported="true"
-            android:label="Live Dashboard 媒体同步"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
     </application>
 
     <!-- Health Connect data types declaration -->

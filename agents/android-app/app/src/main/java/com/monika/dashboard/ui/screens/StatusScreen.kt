@@ -1,6 +1,5 @@
 package com.monika.dashboard.ui.screens
 
-import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -25,7 +24,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.health.BackgroundReadAvailability
 import com.monika.dashboard.health.HealthConnectManager
-import com.monika.dashboard.media.MediaNotificationListenerService
 import com.monika.dashboard.media.MediaSyncCoordinator
 import com.monika.dashboard.media.PlaybackStateEnum
 import com.monika.dashboard.ui.theme.Border
@@ -335,27 +333,6 @@ fun StatusScreen() {
         val hasMedia = mediaSnapshot != null &&
             mediaSnapshot.playbackState != com.monika.dashboard.media.PlaybackStateEnum.STOPPED &&
             mediaSnapshot.playbackState != com.monika.dashboard.media.PlaybackStateEnum.UNKNOWN
-        val mediaGranted = remember(tick) {
-            val enabledPackages = android.provider.Settings.Secure.getString(
-                context.contentResolver, "enabled_notification_listeners"
-            ) ?: return@remember false
-            val component = android.content.ComponentName(
-                context, com.monika.dashboard.media.MediaNotificationListenerService::class.java
-            )
-            enabledPackages.contains(component.flattenToString())
-        }
-
-        ServiceStatusRow("通知监听权限", mediaGranted) {
-            try {
-                context.startActivity(
-                    android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
-                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                )
-            } catch (e: Exception) {
-                Toast.makeText(context, "无法打开通知使用权设置", Toast.LENGTH_SHORT).show()
-            }
-        }
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
