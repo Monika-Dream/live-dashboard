@@ -62,7 +62,7 @@ class ScreenStateReceiver(
             var client: ReportClient? = null
             try {
                 client = ReportClient(url, token)
-                client.reportApp(appId = "idle", windowTitle = "idle")
+                client.reportApp(appId = "idle", windowTitle = "")
                 DebugLog.log("屏幕", "上报 idle")
             } catch (e: Exception) {
                 DebugLog.log("屏幕", "上报失败: ${e.message}")

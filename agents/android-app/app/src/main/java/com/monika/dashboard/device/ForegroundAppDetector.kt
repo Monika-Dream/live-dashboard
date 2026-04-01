@@ -107,7 +107,7 @@ class ForegroundAppDetector(
                 client = ReportClient(url, token)
                 val result = client.reportApp(
                     appId = appId,
-                    windowTitle = appId
+                    windowTitle = ""
                 )
 
                 if (result.isSuccess) {
