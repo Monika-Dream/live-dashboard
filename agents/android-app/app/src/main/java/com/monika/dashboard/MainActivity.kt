@@ -22,6 +22,7 @@ import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.health.HealthConnectManager
 import com.monika.dashboard.health.HealthSyncWorker
 import com.monika.dashboard.network.ReportClient
+import com.monika.dashboard.service.HeartbeatWorker
 import com.monika.dashboard.ui.screens.HealthScreen
 import com.monika.dashboard.ui.screens.SetupScreen
 import com.monika.dashboard.ui.screens.StatusScreen
@@ -121,16 +122,26 @@ private fun MainContent(settings: SettingsStore, modifier: Modifier = Modifier) 
     val tabs = listOf("设置", "健康", "状态")
     val context = LocalContext.current
 
-    // Trigger foreground health sync and schedule background sync on app open
+    // Trigger foreground health sync, schedule background sync, and start heartbeat on app open
     LaunchedEffect(Unit) {
         val enabledTypes = settings.enabledHealthTypes.first()
         val url = settings.serverUrl.first()
         val token = withContext(Dispatchers.IO) { settings.getToken() }
-        if (enabledTypes.isNotEmpty() && url.isNotEmpty() && !token.isNullOrEmpty()
-            && HealthConnectManager.isAvailable(context)) {
-            val syncInterval = settings.healthSyncInterval.first()
-            HealthSyncWorker.schedule(context, syncInterval)
-            HealthSyncWorker.syncNow(context, foreground = true)
+        val monitoringEnabled = settings.monitoringEnabled.first()
+        val reportInterval = settings.reportInterval.first()
+
+        if (url.isNotEmpty() && !token.isNullOrEmpty()) {
+            // Schedule heartbeat if monitoring is enabled
+            if (monitoringEnabled) {
+                HeartbeatWorker.schedule(context, reportInterval)
+            }
+
+            // Schedule health sync and sync now if health types are configured
+            if (enabledTypes.isNotEmpty() && HealthConnectManager.isAvailable(context)) {
+                val syncInterval = settings.healthSyncInterval.first()
+                HealthSyncWorker.schedule(context, syncInterval)
+                HealthSyncWorker.syncNow(context, foreground = true)
+            }
         }
     }
 
