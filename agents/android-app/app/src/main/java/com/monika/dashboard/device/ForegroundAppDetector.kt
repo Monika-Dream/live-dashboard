@@ -11,17 +11,22 @@ import android.util.Log
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.network.ReportClient
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 
 class ForegroundAppDetector(
     private val context: Context,
     private val settings: SettingsStore
 ) {
+    companion object {
+        private const val MIN_REPORT_INTERVAL_MS = 1000L
+    }
+
     private val executor = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
     private var lastReportedApp: String? = null
     private var lastReportTime: Long = 0
-    private const val MIN_REPORT_INTERVAL_MS = 1000L
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -93,7 +98,7 @@ class ForegroundAppDetector(
             lastReportedApp = appId
             lastReportTime = now
 
-            val url = try { settings.serverUrl.first() } catch (_: Exception) { "" }
+            val url = try { runBlocking { settings.serverUrl.first() } } catch (_: Exception) { "" }
             val token = try { settings.getToken() } catch (_: Exception) { null }
             if (url.isEmpty() || token.isNullOrEmpty()) return@execute
 
@@ -102,10 +107,7 @@ class ForegroundAppDetector(
                 client = ReportClient(url, token)
                 val result = client.reportApp(
                     appId = appId,
-                    windowTitle = appId,
-                    musicTitle = null,
-                    musicArtist = null,
-                    musicApp = null
+                    windowTitle = appId
                 )
 
                 if (result.isSuccess) {
