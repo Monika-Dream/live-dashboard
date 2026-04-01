@@ -24,3 +24,4 @@ agents/android-app/local.properties
 agents/android-app/.gradle/
 agents/android-app/app/build/
 agents/android-app/build/
+agents/android-app/.idea/
