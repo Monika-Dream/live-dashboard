@@ -121,13 +121,15 @@ private fun MainContent(settings: SettingsStore, modifier: Modifier = Modifier) 
     val tabs = listOf("设置", "健康", "状态")
     val context = LocalContext.current
 
-    // Trigger foreground health sync once on app open
+    // Trigger foreground health sync and schedule background sync on app open
     LaunchedEffect(Unit) {
         val enabledTypes = settings.enabledHealthTypes.first()
         val url = settings.serverUrl.first()
         val token = withContext(Dispatchers.IO) { settings.getToken() }
         if (enabledTypes.isNotEmpty() && url.isNotEmpty() && !token.isNullOrEmpty()
             && HealthConnectManager.isAvailable(context)) {
+            val syncInterval = settings.healthSyncInterval.first()
+            HealthSyncWorker.schedule(context, syncInterval)
             HealthSyncWorker.syncNow(context, foreground = true)
         }
     }
