@@ -136,11 +136,10 @@ private fun MainContent(settings: SettingsStore, modifier: Modifier = Modifier) 
                 HeartbeatWorker.schedule(context, reportInterval)
             }
 
-            // Schedule health sync and sync now if health types are configured
+            // Schedule health sync if health types are configured
             if (enabledTypes.isNotEmpty() && HealthConnectManager.isAvailable(context)) {
                 val syncInterval = settings.healthSyncInterval.first()
                 HealthSyncWorker.schedule(context, syncInterval)
-                HealthSyncWorker.syncNow(context, foreground = true)
             }
         }
     }
