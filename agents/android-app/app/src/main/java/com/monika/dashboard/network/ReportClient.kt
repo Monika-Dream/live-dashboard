@@ -70,23 +70,43 @@ class ReportClient(
     }
 
     fun reportHealthData(records: List<HealthRecord>): Result<Unit> {
-        val body = JSONObject().apply {
-            val arr = JSONArray()
-            for (record in records) {
-                arr.put(JSONObject().apply {
-                    put("type", record.type)
-                    put("value", record.value)
-                    put("unit", record.unit)
-                    put("timestamp", record.timestamp)
-                    if (record.endTime != null) {
-                        put("end_time", record.endTime)
-                    }
-                })
+        if (records.isEmpty()) return Result.success(Unit)
+
+        val chunkSize = 500
+        var successCount = 0
+        var failureCount = 0
+
+        for (chunk in records.chunked(chunkSize)) {
+            val body = JSONObject().apply {
+                val arr = JSONArray()
+                for (record in chunk) {
+                    if (record.value.isNaN() || record.value.isInfinite()) continue
+                    arr.put(JSONObject().apply {
+                        put("type", record.type)
+                        put("value", record.value)
+                        put("unit", record.unit)
+                        put("timestamp", record.timestamp)
+                        if (record.endTime != null) {
+                            put("end_time", record.endTime)
+                        }
+                    })
+                }
+                put("records", arr)
             }
-            put("records", arr)
+
+            val result = post("${serverUrl.trimEnd('/')}/api/health-data", body)
+            if (result.isSuccess) {
+                successCount += chunk.size
+            } else {
+                failureCount += chunk.size
+                if (failureCount == chunk.size) {
+                    return result
+                }
+            }
         }
 
-        return post("${serverUrl.trimEnd('/')}/api/health-data", body)
+        return if (failureCount == 0) Result.success(Unit)
+        else Result.failure(IOException("部分批次失败: $failureCount/$successCount"))
     }
 
     fun testConnection(): Result<Unit> {
