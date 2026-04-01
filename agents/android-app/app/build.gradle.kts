@@ -73,9 +73,8 @@ dependencies {
     // OkHttp
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // Health Connect background-read APIs are available here while staying
-    // compatible with the current compileSdk / Android Gradle Plugin versions.
-    implementation("androidx.health.connect:connect-client:1.1.0")
+    // Health Connect - use 1.0.0 for AGP 8.5.x compatibility
+    implementation("androidx.health.connect:connect-client:1.0.0")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
