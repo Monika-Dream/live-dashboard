@@ -5,13 +5,9 @@ import androidx.work.Configuration
 import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.device.ForegroundAppDetector
 import com.monika.dashboard.device.ScreenStateReceiver
-import com.monika.dashboard.media.MediaNotificationListenerService
-import com.monika.dashboard.media.MediaSessionMonitor
 
 class DashboardApp : Application(), Configuration.Provider {
 
-    var mediaSessionMonitor: MediaSessionMonitor? = null
-        private set
     var foregroundAppDetector: ForegroundAppDetector? = null
         private set
     var screenStateReceiver: ScreenStateReceiver? = null
