@@ -1,5 +1,6 @@
 package com.monika.dashboard.ui.screens
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -24,6 +25,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.health.BackgroundReadAvailability
 import com.monika.dashboard.health.HealthConnectManager
+import com.monika.dashboard.media.MediaNotificationListenerService
+import com.monika.dashboard.media.MediaSyncCoordinator
+import com.monika.dashboard.media.PlaybackStateEnum
 import com.monika.dashboard.ui.theme.Border
 import com.monika.dashboard.ui.theme.TextMuted
 import kotlinx.coroutines.Dispatchers
@@ -320,6 +324,65 @@ fun StatusScreen() {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
+                }
+            }
+        }
+
+        // Media sync status
+        Text(text = "媒体同步状态", style = MaterialTheme.typography.titleMedium)
+
+        val mediaSnapshot = remember(tick) { com.monika.dashboard.media.MediaSyncCoordinator.lastSnapshot }
+        val hasMedia = mediaSnapshot != null &&
+            mediaSnapshot.playbackState != com.monika.dashboard.media.PlaybackStateEnum.STOPPED &&
+            mediaSnapshot.playbackState != com.monika.dashboard.media.PlaybackStateEnum.UNKNOWN
+        val mediaGranted = remember(tick) {
+            val enabledPackages = android.provider.Settings.Secure.getString(
+                context.contentResolver, "enabled_notification_listeners"
+            ) ?: return@remember false
+            val component = android.content.ComponentName(
+                context, com.monika.dashboard.media.MediaNotificationListenerService::class.java
+            )
+            enabledPackages.contains(component.flattenToString())
+        }
+
+        ServiceStatusRow("通知监听权限", mediaGranted) {
+            try {
+                context.startActivity(
+                    android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            } catch (e: Exception) {
+                Toast.makeText(context, "无法打开通知使用权设置", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            color = if (hasMedia) MaterialTheme.colorScheme.secondaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = if (hasMedia) "当前播放" else "未检测到媒体播放",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                if (hasMedia && mediaSnapshot != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val displayApp = mediaSnapshot.appName ?: mediaSnapshot.packageName ?: "未知"
+                    val displayTitle = mediaSnapshot.title ?: ""
+                    val displayArtist = mediaSnapshot.artist ?: ""
+                    if (displayApp.isNotBlank()) {
+                        Text(text = "应用: $displayApp", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (displayTitle.isNotBlank()) {
+                        Text(text = "标题: $displayTitle", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (displayArtist.isNotBlank()) {
+                        Text(text = "艺术家: $displayArtist", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(text = "状态: ${mediaSnapshot.playbackState}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
