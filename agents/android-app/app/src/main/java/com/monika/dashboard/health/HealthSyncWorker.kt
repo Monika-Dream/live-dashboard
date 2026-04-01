@@ -155,8 +155,8 @@ class HealthSyncWorker(
             val since = if (isFullSync || lastSync <= 0) {
                 maxLookback
             } else {
-                // 5-minute overlap window to cover delayed writes; server deduplicates
-                Instant.ofEpochMilli(lastSync).minus(5, ChronoUnit.MINUTES)
+                // 30-minute overlap window to cover delayed writes; server deduplicates
+                Instant.ofEpochMilli(lastSync).minus(30, ChronoUnit.MINUTES)
                     .coerceIn(maxLookback, until)
             }
 
