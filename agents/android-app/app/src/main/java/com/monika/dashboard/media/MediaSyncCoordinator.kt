@@ -4,7 +4,6 @@ import android.util.Log
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.network.ReportClient
-import kotlinx.coroutines.flow.first
 import java.util.concurrent.Executors
 
 object MediaSyncCoordinator {
@@ -39,8 +38,8 @@ object MediaSyncCoordinator {
 
             if (!hasContent && !isStop) return@execute
 
-            val url = runCatching { settings.serverUrl }.get() ?: ""
-            val token = runCatching { settings.getToken() }.get() ?: ""
+            val url = try { kotlinx.coroutines.runBlocking { settings.serverUrl.first() } } catch (_: Exception) { "" }
+            val token = try { settings.getToken() } catch (_: Exception) { null }
             if (url.isEmpty() || token.isNullOrEmpty()) return@execute
 
             var client: ReportClient? = null
