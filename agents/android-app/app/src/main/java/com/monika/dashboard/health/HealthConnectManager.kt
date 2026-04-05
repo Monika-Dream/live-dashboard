@@ -18,6 +18,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.reflect.KClass
 
 data class BackgroundReadAvailability(
     val isAvailable: Boolean,
@@ -56,35 +57,35 @@ class HealthConnectManager(private val context: Context) {
         HealthConnectClient.getOrCreate(context)
     }
 
-    /** Background read permission */
+    /** 后台读取权限 */
     val backgroundReadPermission: String =
         HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
 
     /**
-     * Android 14+ may expose Health Connect "additional access" permissions.
-     * Actual background-read availability is still determined at runtime.
+     * Android 14+ 可能出现额外的 Health Connect 授权项，
+     * 但后台读取能力是否真的可用，仍要在运行时检测。
      */
     val needsBackgroundPermission: Boolean = Build.VERSION.SDK_INT >= 34
 
-    /** Data read permissions only (no background permission) — for authorization UI */
+    /** 仅包含数据读取权限，供授权界面使用。 */
     val dataReadPermissions: Set<String> = HealthDataType.entries.map { it.permission }.toSet()
 
-    /** All read permissions the app may request (background permission only on Android 14+) */
+    /** 应用可能申请到的全部读取权限。 */
     val allReadPermissions: Set<String> = buildSet {
         addAll(dataReadPermissions)
         if (needsBackgroundPermission) add(backgroundReadPermission)
     }
 
-    /** Check which permissions are currently granted */
+    /** 查询当前已授权的权限集合。 */
     suspend fun getGrantedPermissions(): Set<String> {
         return client.permissionController.getGrantedPermissions()
     }
 
-    /** Permission request contract for use in Activity/Compose */
+    /** 给 Activity / Compose 用的权限请求契约。 */
     fun createPermissionRequestContract() =
         PermissionController.createRequestPermissionResultContract()
 
-    /** Check background-read feature availability at runtime. */
+    /** 运行时检测后台读取能力是否可用。 */
     suspend fun getBackgroundReadAvailability(): BackgroundReadAvailability {
         if (Build.VERSION.SDK_INT < 34) {
             return BackgroundReadAvailability(isAvailable = false)
@@ -124,7 +125,7 @@ class HealthConnectManager(private val context: Context) {
         if (!since.isBefore(until)) return HealthReadResult(emptyList(), attemptedTypes = 0, deniedTypes = 0)
         val timeRange = TimeRangeFilter.between(since, until)
 
-        // Check permissions first, only read types with granted permissions
+        // 先按授权状态过滤类型，避免把权限错误和读取错误混在一起。
         val granted = getGrantedPermissions()
         val grantedDataCount = dataReadPermissions.count { it in granted }
         if (com.monika.dashboard.BuildConfig.DEBUG) {
@@ -184,10 +185,33 @@ class HealthConnectManager(private val context: Context) {
         )
     }
 
-    /** Read all records from today (local midnight to now). For foreground sync on app open. */
+    /** 读取今天零点到现在的数据，供打开 APP 时的前台同步使用。 */
     suspend fun readTodayRecords(enabledTypes: Set<String>): List<ReportClient.HealthRecord> {
         val todayStart = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
         return readRecords(enabledTypes, todayStart, Instant.now()).records
+    }
+
+    private suspend fun <T : Record> readAllRecords(
+        recordType: KClass<T>,
+        timeRange: TimeRangeFilter
+    ): List<T> {
+        val records = mutableListOf<T>()
+        var pageToken: String? = null
+
+        do {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = recordType,
+                    timeRangeFilter = timeRange,
+                    pageSize = PAGE_SIZE,
+                    pageToken = pageToken
+                )
+            )
+            records += response.records
+            pageToken = response.pageToken?.takeIf { it.isNotEmpty() }
+        } while (pageToken != null)
+
+        return records
     }
 
     private suspend fun readByType(
@@ -219,8 +243,7 @@ class HealthConnectManager(private val context: Context) {
     private fun formatInstant(instant: Instant): String = ISO_FORMAT.format(instant)
 
     private suspend fun readHeartRate(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, timeRange))
-        return response.records.flatMap { record ->
+        return readAllRecords(HeartRateRecord::class, timeRange).flatMap { record ->
             record.samples.map { sample ->
                 ReportClient.HealthRecord(
                     type = "heart_rate",
@@ -233,8 +256,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readRestingHeartRate(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(RestingHeartRateRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "resting_heart_rate",
                 value = record.beatsPerMinute.toDouble(),
@@ -245,8 +267,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readHRV(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(HeartRateVariabilityRmssdRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "heart_rate_variability",
                 value = record.heartRateVariabilityMillis,
@@ -257,8 +278,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readSteps(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(StepsRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(StepsRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "steps",
                 value = record.count.toDouble(),
@@ -270,8 +290,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readDistance(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(DistanceRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(DistanceRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "distance",
                 value = record.distance.inMeters,
@@ -283,8 +302,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readExercise(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(ExerciseSessionRecord::class, timeRange).map { record ->
             val durationMin = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
             ReportClient.HealthRecord(
                 type = "exercise",
@@ -297,8 +315,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readSleep(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(SleepSessionRecord::class, timeRange).map { record ->
             val durationMin = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
             ReportClient.HealthRecord(
                 type = "sleep",
@@ -311,8 +328,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readOxygenSaturation(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(OxygenSaturationRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "oxygen_saturation",
                 value = record.percentage.value,
@@ -323,8 +339,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readBodyTemperature(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(BodyTemperatureRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(BodyTemperatureRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "body_temperature",
                 value = record.temperature.inCelsius,
@@ -335,8 +350,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readRespiratoryRate(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(RespiratoryRateRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(RespiratoryRateRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "respiratory_rate",
                 value = record.rate,
@@ -347,9 +361,8 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readBloodPressure(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(BloodPressureRecord::class, timeRange))
-        return response.records.map { record ->
-            // Report systolic as the primary value
+        return readAllRecords(BloodPressureRecord::class, timeRange).map { record ->
+            // 目前后端只接收单值血压，这里先以上压作为主值。
             ReportClient.HealthRecord(
                 type = "blood_pressure",
                 value = record.systolic.inMillimetersOfMercury,
@@ -360,8 +373,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readBloodGlucose(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(BloodGlucoseRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(BloodGlucoseRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "blood_glucose",
                 value = record.level.inMillimolesPerLiter,
@@ -372,8 +384,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readWeight(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(WeightRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(WeightRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "weight",
                 value = record.weight.inKilograms,
@@ -384,8 +395,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readHeight(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(HeightRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(HeightRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "height",
                 value = record.height.inMeters,
@@ -396,8 +406,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readActiveCalories(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(ActiveCaloriesBurnedRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "active_calories",
                 value = record.energy.inKilocalories,
@@ -409,8 +418,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readTotalCalories(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(TotalCaloriesBurnedRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "total_calories",
                 value = record.energy.inKilocalories,
@@ -422,8 +430,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readHydration(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(HydrationRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(HydrationRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "hydration",
                 value = record.volume.inMilliliters,
@@ -435,8 +442,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readNutrition(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        val response = client.readRecords(ReadRecordsRequest(NutritionRecord::class, timeRange))
-        return response.records.map { record ->
+        return readAllRecords(NutritionRecord::class, timeRange).map { record ->
             ReportClient.HealthRecord(
                 type = "nutrition",
                 value = record.totalCarbohydrate?.inGrams ?: 0.0,

@@ -1,21 +1,17 @@
 package com.monika.dashboard.service
 
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.util.Log
 import androidx.work.*
 import com.monika.dashboard.data.DebugLog
 import com.monika.dashboard.data.SettingsStore
-import com.monika.dashboard.network.ReportClient
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * WorkManager-based heartbeat that survives Xiaomi/HyperOS process freezer.
- * Uses self-rescheduling OneTimeWorkRequest to bypass the 15-min periodic minimum.
- * AlarmManager under the hood wakes the app even when frozen by cgroup freezer.
+ * 基于 WorkManager 的心跳上报任务。
+ * 通过自我续期的 OneTimeWorkRequest 绕过 PeriodicWork 的最小时长限制，
+ * 在待机、冻结或厂商保活策略较激进时，尽量维持稳定上报。
  */
 class HeartbeatWorker(
     appContext: Context,
@@ -72,64 +68,11 @@ class HeartbeatWorker(
             return Result.success()
         }
 
-        val url = settings.serverUrl.first()
-        val token = settings.getToken()
-        if (url.isEmpty() || token.isNullOrEmpty()) {
-            DebugLog.log("心跳Worker", "URL或Token未配置，跳过")
-            enqueueNext(applicationContext, intervalSec)
-            return Result.success()
-        }
+        val result = HeartbeatReporter.runOnce(applicationContext, intervalSec)
+        Log.i(TAG, result.summary)
 
-        var client: ReportClient? = null
-        try {
-            client = ReportClient(url, token)
-
-            val appId = "android"
-            val battery = getBatteryInfo()
-
-            val result = client.reportApp(
-                appId = appId,
-                windowTitle = appId,
-                batteryPercent = battery?.first,
-                batteryCharging = battery?.second
-            )
-
-            if (result.isSuccess) {
-                DebugLog.log("心跳Worker", "上报成功: $appId")
-                Log.i(TAG, "Heartbeat sent: $appId")
-            } else {
-                DebugLog.log("心跳Worker", "上报失败: ${result.exceptionOrNull()?.message}")
-            }
-        } catch (e: Exception) {
-            DebugLog.log("心跳Worker", "异常: ${e.message}")
-            Log.e(TAG, "Heartbeat error", e)
-        } finally {
-            runCatching { client?.shutdown() }
-        }
-
-        // Always reschedule next heartbeat
+        // 无论本轮成功还是失败，都继续安排下一次心跳，避免任务链中断。
         enqueueNext(applicationContext, intervalSec)
         return Result.success()
-    }
-
-    private fun getBatteryInfo(): Pair<Int, Boolean>? {
-        return try {
-            val intent = applicationContext.registerReceiver(
-                null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-            )
-            intent?.let {
-                val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                val status = it.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                if (level >= 0 && scale > 0) {
-                    val percent = (level * 100) / scale
-                    val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
-                    Pair(percent, charging)
-                } else null
-            }
-        } catch (_: Exception) {
-            null
-        }
     }
 }

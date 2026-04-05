@@ -6,8 +6,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 前台应用识别依赖 Usage Stats，必须先在清单里声明，这样系统设置里才会出现授权入口。 -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
 
-    <!-- Health Connect permissions (declared individually, requested at runtime) -->
+    <!-- Health Connect 读取权限，逐项声明，运行时再按需申请 -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
@@ -27,7 +33,7 @@
     <uses-permission android:name="android.permission.health.READ_HYDRATION" />
     <uses-permission android:name="android.permission.health.READ_NUTRITION" />
 
-    <!-- Background read permission (Android 14+, required for WorkManager health sync) -->
+    <!-- 后台读取权限，Android 14+ 上后台健康同步会用到 -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
     <application
@@ -50,9 +56,9 @@
         </activity>
 
         <!--
-            Health Connect permission rationale activity.
-            Only launchable by apps holding START_VIEW_PERMISSION_USAGE
-            (system-signature permission held by Health Connect).
+            Health Connect 权限说明页。
+            只有持有 START_VIEW_PERMISSION_USAGE 的系统级调用方才能拉起，
+            正常场景下由 Health Connect 自己进入这里。
         -->
         <activity
             android:name=".PermissionRationaleActivity"
@@ -64,9 +70,37 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".service.DashboardNotificationListenerService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".service.DashboardHeartbeatService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".service.DashboardAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false"
+            android:label="@string/accessibility_service_label">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/dashboard_accessibility_service" />
+        </service>
+
     </application>
 
-    <!-- Health Connect data types declaration -->
+    <!-- 声明会交互的 Health Connect 包 -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>

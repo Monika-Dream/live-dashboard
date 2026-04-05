@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Monika Now</string>
+    <string name="accessibility_service_label">Live Dashboard 前台应用识别</string>
+    <string name="accessibility_service_description">用于在后台记录当前位于前台的应用，给 Live Dashboard 提供更稳定的状态上报。</string>
+    <string name="heartbeat_channel_name">后台监听</string>
+    <string name="heartbeat_channel_description">保持当前应用与音乐状态的后台上报。</string>
+    <string name="heartbeat_notification_title">Live Dashboard 正在后台监听</string>
+    <string name="heartbeat_notification_stop">停止监听</string>
 </resources>
