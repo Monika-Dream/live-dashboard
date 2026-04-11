@@ -14,6 +14,7 @@ import json
 import logging
 import logging.handlers
 import os
+import shlex
 import re
 import socket
 import subprocess
@@ -437,6 +438,27 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
     return result[0]
 
 
+def open_settings_in_subprocess() -> bool:
+    """
+    Open settings UI in a separate process to avoid pystray(AppKit) + Tk re-init
+    crashes on macOS. Returns True when config was saved.
+    """
+    try:
+        if getattr(sys, "frozen", False):
+            cmd = [sys.executable, "--settings-dialog"]
+        else:
+            cmd = [sys.executable, str(Path(__file__).resolve()), "--settings-dialog"]
+        result = subprocess.run(cmd, check=False)
+        return result.returncode == 0
+    except Exception as e:
+        log.error(
+            "Failed to open settings subprocess: %s (cmd=%s)",
+            e,
+            " ".join(shlex.quote(c) for c in cmd),
+        )
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Reporter
 # ---------------------------------------------------------------------------
@@ -551,12 +573,16 @@ class TrayAgent:
             self._current_app = app_name
         if self._icon:
             color = {"在线": "green", "AFK": "orange"}.get(status, "gray")
-            self._icon.icon = self._icons[color]
-            tip = "Live Dashboard"
-            if app_name:
-                tip += f"\n当前: {app_name}"
-            tip += f"\n{status}"
-            self._icon.title = tip[:127]
+            try:
+                self._icon.icon = self._icons[color]
+                tip = "Live Dashboard"
+                if app_name:
+                    tip += f"\n当前: {app_name}"
+                tip += f"\n{status}"
+                self._icon.title = tip[:127]
+                self._icon.update_menu()
+            except Exception as e:
+                log.debug("Tray refresh failed: %s", e)
 
     def _toggle_log(self):
         enabled = _file_handler is None
@@ -613,6 +639,8 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
         "Monitoring — interval=%ds, heartbeat=%ds, idle=%ds",
         interval, heartbeat_interval, idle_threshold,
     )
+    if tray:
+        tray.update_status("在线")
 
     while not shutdown_event.is_set():
         try:
@@ -686,20 +714,23 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
 def main() -> None:
     log.info("Live Dashboard macOS Agent")
 
+    if "--settings-dialog" in sys.argv:
+        cfg = load_config()
+        new_cfg = show_settings_dialog(cfg)
+        raise SystemExit(0 if new_cfg is not None else 1)
+
     while True:
         cfg = load_config()
 
         if not cfg.get("server_url") or not cfg.get("token") or cfg.get("token") == "YOUR_TOKEN_HERE":
-            cfg = show_settings_dialog(cfg)
-            if cfg is None:
+            if not open_settings_in_subprocess():
                 return
             cfg = load_config()
 
         err = validate_config(cfg)
         if err:
             log.warning("Invalid config: %s", err)
-            cfg = show_settings_dialog(cfg)
-            if cfg is None:
+            if not open_settings_in_subprocess():
                 return
             cfg = load_config()
             continue
@@ -727,8 +758,7 @@ def main() -> None:
 
             if tray.settings_requested:
                 shutdown_event.clear()
-                new_cfg = show_settings_dialog(cfg)
-                if new_cfg is None:
+                if not open_settings_in_subprocess():
                     continue
                 continue
             else:
