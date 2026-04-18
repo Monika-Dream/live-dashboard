@@ -1,0 +1,37 @@
+services:
+  dashboard:
+    build: .
+    container_name: live_dashboard
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - STATIC_DIR=/app/public
+      - DB_PATH=/data/live-dashboard.db
+      - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
+      - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
+      - HASH_SECRET=${HASH_SECRET}
+      - DISPLAY_NAME=${DISPLAY_NAME}
+      - SITE_TITLE=${SITE_TITLE}
+      - SITE_DESC=${SITE_DESC}
+      - SITE_FAVICON=${SITE_FAVICON}
+      - EXTERNAL_DASHBOARDS=${EXTERNAL_DASHBOARDS}
+    volumes:
+      - dashboard_data:/data
+    networks:
+      dm_network:
+        ipv4_address: 172.20.0.80
+    mem_limit: 128m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dashboard_data:
+
+networks:
+  dm_network:
+    external: true
+    name: your_external_network  # Replace with your Docker network name
