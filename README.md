@@ -108,7 +108,6 @@ Copy-Item .env.example .env -Force
 
 说明：仓库内的 `docker-compose.yml` 默认走本地构建（`build: .`），会使用你当前代码；
 `docker-compose.example.yml` 是官方预构建镜像示例，不建议在你这个定制版本里直接覆盖使用。
-
 ### 2. 编辑 `.env`
 
 至少配置以下变量：
