@@ -104,7 +104,6 @@ function getDashboards(): DashboardProfile[] {
     return DEFAULT_DASHBOARDS;
   }
 }
-
 export function getSiteConfig(): SiteConfig {
   const displayName = nonEmpty(process.env.DISPLAY_NAME) ?? DEFAULT_DISPLAY_NAME;
   const siteTitle = nonEmpty(process.env.SITE_TITLE) ?? `${displayName} Now`;

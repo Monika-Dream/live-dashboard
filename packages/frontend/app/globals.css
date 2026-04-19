@@ -402,7 +402,6 @@ body.night-mode .status-pointer::after {
   background: rgba(232, 160, 191, 0.14);
   color: #a45c79;
 }
-
 /* === CurrentStatus — VN台词框 with cat ears === */
 .status-bubble {
   position: relative;

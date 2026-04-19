@@ -24,39 +24,162 @@
 - Health Connect 健康数据同步（Android）
 - 多设备多平台支持（Windows / macOS / Android）
 
-## 快速开始
+## Windows PowerShell + Docker 部署（推荐）
 
-```bash
-# 1. 生成密钥
-TOKEN=$(openssl rand -hex 16)
-SECRET=$(openssl rand -hex 32)
+这套步骤按顺序复制即可。默认使用 3000 端口，先跑起来，再按需修改。
 
-# 2. 启动
-docker run -d --name live-dashboard \
-  -p 3000:3000 \
-  -v dashboard_data:/data \
-  -e HASH_SECRET=$SECRET \
-  -e DEVICE_TOKEN_1=$TOKEN:my-pc:MyPC:windows \
-  ghcr.io/monika-dream/live-dashboard:latest
+### 0. 前置准备
 
-# 3. 打开 http://localhost:3000
-echo "Token: $TOKEN  ← Agent 配置用"
+1. 安装 Docker Desktop（Windows）并确保 Docker 已启动。
+2. 打开 PowerShell（建议管理员权限）。
+3. 确认 Docker 可用：
+
+```powershell
+docker --version
+docker compose version
 ```
 
-详细部署说明（docker-compose、VPS + Nginx + HTTPS）见 [Wiki - 快速部署](https://github.com/Monika-Dream/live-dashboard/wiki/快速部署)。
+### 1. 一键启动（单设备示例）
 
-## 多人面板配置
+```powershell
+# 1) 生成 token 与 HASH_SECRET
+$TOKEN = -join ((48..57) + (97..102) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+$SECRET = -join ((48..57) + (97..102) | Get-Random -Count 64 | ForEach-Object {[char]$_})
 
-可以继续使用 DISPLAY_NAME / SITE_TITLE / SITE_DESC 自定义你自己的主面板，另外通过 EXTERNAL_DASHBOARDS 挂载其他人的面板：
+# 2) 创建数据卷（首次执行一次即可）
+docker volume create dashboard_data
+
+# 3) 拉镜像
+docker pull ghcr.io/monika-dream/live-dashboard:latest
+
+# 4) 启动容器
+docker rm -f live-dashboard
+docker run -d --name live-dashboard `
+  -p 3000:3000 `
+  -v dashboard_data:/data `
+  -e "HASH_SECRET=$SECRET" `
+  -e "DEVICE_TOKEN_1=$TOKEN:my-pc:我的电脑:windows" `
+  ghcr.io/monika-dream/live-dashboard:latest
+
+# 5) 启动检查
+docker ps --filter "name=live-dashboard"
+Invoke-WebRequest http://127.0.0.1:3000/api/health -UseBasicParsing
+
+# 6) 记录 token（给 Agent 使用）
+Write-Host "DEVICE_TOKEN_1 = $TOKEN"
+```
+
+浏览器打开：http://127.0.0.1:3000
+
+### 2. 常用运维命令（PowerShell）
+
+```powershell
+# 查看日志
+docker logs --tail 100 live-dashboard
+docker logs -f live-dashboard
+
+# 重启容器
+docker restart live-dashboard
+
+# 停止并删除容器（不会删除数据卷）
+docker rm -f live-dashboard
+
+# 删除数据（谨慎，执行后历史数据清空）
+docker volume rm dashboard_data
+```
+
+### 3. 常见问题排查
+
+1. 报错 `invalid reference format`：多数是引号/换行符错误，确保在 PowerShell 中使用反引号续行。
+2. 页面无数据：检查 Agent 是否填了正确 token；检查 `DEVICE_TOKEN_N` 中的 `device_id` 是否唯一。
+3. 端口占用：把 `-p 3000:3000` 改成 `-p 3001:3000`，并访问 `http://127.0.0.1:3001`。
+
+## Docker Compose 部署（推荐生产化）
+
+### 1. 准备配置文件
+
+```powershell
+Set-Location D:\live-dashboard-main
+Copy-Item .env.example .env -Force
+Copy-Item docker-compose.example.yml docker-compose.yml -Force
+```
+
+### 2. 编辑 `.env`
+
+至少配置以下变量：
 
 ```env
+DEVICE_TOKEN_1=token1:my-pc:我的电脑:windows
+DEVICE_TOKEN_2=token2:my-phone:我的手机:android
+HASH_SECRET=请替换成64位随机十六进制
 DISPLAY_NAME=xuyihong
 SITE_TITLE=xuyihong Now
 SITE_DESC=What is xuyihong doing right now?
+SITE_FAVICON=/favicon.ico
 EXTERNAL_DASHBOARDS=[{"id":"aloys23","name":"DBJD-CR","url":"https://livedashboard.aloys23.link"},{"id":"ailucat","name":"八九四","url":"https://live.ailucat.top"},{"id":"fun91","name":"Monika","url":"https://live.91fun.asia"}]
 ```
 
-页面会把你自己的数据作为主面板展示，并在顶部提供人物切换和全部成员概览卡片。
+### 3. 启动 Compose
+
+```powershell
+docker compose up -d
+docker compose ps
+Invoke-WebRequest http://127.0.0.1:3000/api/config -UseBasicParsing
+```
+
+### 4. 更新镜像
+
+```powershell
+docker compose pull
+docker compose up -d
+```
+
+## 多面板部署（一个站点看多人）
+
+多面板核心是 `EXTERNAL_DASHBOARDS`，它是一个 JSON 数组。每一项至少包含 `id`、`name`、`url`。
+
+```env
+EXTERNAL_DASHBOARDS=[
+  {"id":"aloys23","name":"DBJD-CR","url":"https://livedashboard.aloys23.link"},
+  {"id":"ailucat","name":"八九四","url":"https://live.ailucat.top"},
+  {"id":"fun91","name":"Monika","url":"https://live.91fun.asia"}
+]
+```
+
+说明：
+
+1. `url` 必须是可直接访问的站点根地址（推荐 https）。
+2. 外部站点需要能访问 `api/config`、`api/current`、`api/timeline`。
+3. 面板顶部会显示切换按钮，卡片区域会显示每个站点的在线摘要。
+
+## 多设备配置示例（2 个电脑 + 2 个手机）
+
+只要 token 独立、`device_id` 唯一，就能同时显示多台设备。
+
+```powershell
+docker rm -f live-dashboard
+docker run -d --name live-dashboard `
+  -p 3000:3000 `
+  -v dashboard_data:/data `
+  -e "HASH_SECRET=my_secure_key_123" `
+  -e "DEVICE_TOKEN_1=token-pc-1:pc-1:电脑1:windows" `
+  -e "DEVICE_TOKEN_2=token-pc-2:pc-2:电脑2:windows" `
+  -e "DEVICE_TOKEN_3=token-phone-1:phone-1:手机1:android" `
+  -e "DEVICE_TOKEN_4=token-phone-2:phone-2:手机2:android" `
+  -e "DISPLAY_NAME=xuyihong" `
+  -e "SITE_TITLE=xuyihong Now" `
+  -e "SITE_DESC=What is xuyihong doing right now?" `
+  -e "EXTERNAL_DASHBOARDS=[{""id"":""aloys23"",""name"":""DBJD-CR"",""url"":""https://livedashboard.aloys23.link""},{""id"":""ailucat"",""name"":""八九四"",""url"":""https://live.ailucat.top""},{""id"":""fun91"",""name"":""Monika"",""url"":""https://live.91fun.asia""}]" `
+  ghcr.io/monika-dream/live-dashboard:latest
+```
+
+验证：
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/api/current | Select-Object -ExpandProperty devices
+```
+
+详细部署说明（docker-compose、VPS + Nginx + HTTPS）见 [Wiki - 快速部署](https://github.com/Monika-Dream/live-dashboard/wiki/快速部署)。
 
 ## Agent 下载
 

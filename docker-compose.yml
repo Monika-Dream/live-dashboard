@@ -9,6 +9,8 @@ services:
       - DB_PATH=/data/live-dashboard.db
       - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
       - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
+      - DEVICE_TOKEN_3=${DEVICE_TOKEN_3}
+      - DEVICE_TOKEN_4=${DEVICE_TOKEN_4}
       - HASH_SECRET=${HASH_SECRET}
       - DISPLAY_NAME=${DISPLAY_NAME}
       - SITE_TITLE=${SITE_TITLE}

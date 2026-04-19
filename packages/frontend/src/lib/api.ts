@@ -90,14 +90,13 @@ export async function fetchTimeline(
   signal?: AbortSignal,
   options?: DashboardRequestOptions,
 ): Promise<TimelineResponse> {
-  const tz = new Date().getTimezoneOffset(); // e.g. -480 for UTC+8
+  const tz = new Date().getTimezoneOffset();
   const url = `${buildApiUrl("/api/timeline", options)}?date=${encodeURIComponent(date)}&tz=${tz}`;
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-// Health data types
 export interface HealthRecord {
   device_id: string;
   type: string;
@@ -112,7 +111,6 @@ export interface HealthDataResponse {
   records: HealthRecord[];
 }
 
-// Site config
 export interface SiteConfig {
   displayName: string;
   siteTitle: string;
@@ -185,7 +183,10 @@ export async function fetchConfig(
 ): Promise<SiteConfig> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3000);
-  if (signal?.aborted) { clearTimeout(timeout); return defaultConfig; }
+  if (signal?.aborted) {
+    clearTimeout(timeout);
+    return defaultConfig;
+  }
   const onAbort = () => controller.abort();
   signal?.addEventListener("abort", onAbort, { once: true });
   try {
@@ -193,7 +194,8 @@ export async function fetchConfig(
     if (!res.ok) return defaultConfig;
     const data = await res.json();
     const favicon = typeof data.siteFavicon === "string" && isValidFaviconUrl(data.siteFavicon)
-      ? data.siteFavicon : defaultConfig.siteFavicon;
+      ? data.siteFavicon
+      : defaultConfig.siteFavicon;
     const dashboards = Array.isArray(data.dashboards)
       ? data.dashboards
           .map((entry: unknown) => normalizeDashboardProfile(entry))
