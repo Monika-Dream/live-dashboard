@@ -9,6 +9,7 @@ export interface DashboardProfile {
 
 export interface DashboardRequestOptions {
   baseUrl?: string;
+  dashboardId?: string;
 }
 
 function normalizeBaseUrl(baseUrl?: string): string {
@@ -17,8 +18,23 @@ function normalizeBaseUrl(baseUrl?: string): string {
 }
 
 function buildApiUrl(path: string, options?: DashboardRequestOptions): string {
+  const dashboardId = options?.dashboardId?.trim();
+  if (dashboardId) {
+    const endpoint = path.replace(/^\/api\//, "");
+    const params = new URLSearchParams({
+      dashboard_id: dashboardId,
+      endpoint,
+    });
+    return `/api/proxy?${params.toString()}`;
+  }
+
   const baseUrl = normalizeBaseUrl(options?.baseUrl);
   return `${baseUrl}${path}`;
+}
+
+function withQuery(url: string, params: URLSearchParams): string {
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}${params.toString()}`;
 }
 
 export interface DeviceState {
@@ -91,7 +107,11 @@ export async function fetchTimeline(
   options?: DashboardRequestOptions,
 ): Promise<TimelineResponse> {
   const tz = new Date().getTimezoneOffset();
-  const url = `${buildApiUrl("/api/timeline", options)}?date=${encodeURIComponent(date)}&tz=${tz}`;
+  const params = new URLSearchParams({
+    date,
+    tz: String(tz),
+  });
+  const url = withQuery(buildApiUrl("/api/timeline", options), params);
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -223,8 +243,12 @@ export async function fetchHealthData(
   options?: DashboardRequestOptions,
 ): Promise<HealthDataResponse> {
   const tz = new Date().getTimezoneOffset();
-  let url = `${buildApiUrl("/api/health-data", options)}?date=${encodeURIComponent(date)}&tz=${tz}`;
-  if (deviceId) url += `&device_id=${encodeURIComponent(deviceId)}`;
+  const params = new URLSearchParams({
+    date,
+    tz: String(tz),
+  });
+  if (deviceId) params.set("device_id", deviceId);
+  const url = withQuery(buildApiUrl("/api/health-data", options), params);
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

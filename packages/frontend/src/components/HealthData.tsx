@@ -32,10 +32,10 @@ const CORE_TYPES = ["heart_rate", "oxygen_saturation", "steps", "active_calories
 interface Props {
   selectedDate: string;
   deviceId?: string;
-  baseUrl?: string;
+  dashboardId?: string;
 }
 
-export default function HealthData({ selectedDate, deviceId, baseUrl }: Props) {
+export default function HealthData({ selectedDate, deviceId, dashboardId }: Props) {
   const [data, setData] = useState<HealthDataResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export default function HealthData({ selectedDate, deviceId, baseUrl }: Props) {
     setLoading(true);
     setError(null);
 
-    fetchHealthData(selectedDate, controller.signal, deviceId, baseUrl ? { baseUrl } : undefined)
+    fetchHealthData(selectedDate, controller.signal, deviceId, dashboardId ? { dashboardId } : undefined)
       .then((d) => {
         if (!controller.signal.aborted) setData(d);
       })
@@ -60,7 +60,7 @@ export default function HealthData({ selectedDate, deviceId, baseUrl }: Props) {
       });
 
     return () => controller.abort();
-  }, [baseUrl, selectedDate, deviceId]);
+  }, [dashboardId, selectedDate, deviceId]);
 
   // Group records by type, get latest value for each
   const grouped = useMemo(() => {

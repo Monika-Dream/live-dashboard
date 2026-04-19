@@ -71,8 +71,8 @@ function HomeInner() {
   const activeDashboard = useMemo(() => {
     return dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? dashboards[0];
   }, [dashboards, selectedDashboardId]);
-  const activeBaseUrl = activeDashboard?.isPrimary ? undefined : activeDashboard?.url;
-  const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard(activeBaseUrl);
+  const activeDashboardId = activeDashboard?.isPrimary ? undefined : activeDashboard?.id;
+  const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard(activeDashboardId);
 
   useEffect(() => {
     setSelectedDeviceId(null);
@@ -88,7 +88,7 @@ function HomeInner() {
           try {
             const response = await fetchCurrent(
               undefined,
-              dashboard.isPrimary ? undefined : { baseUrl: dashboard.url },
+              dashboard.isPrimary ? undefined : { dashboardId: dashboard.id },
             );
             return [dashboard.id, buildDashboardSnapshot(dashboard, response)] as const;
           } catch {
@@ -160,7 +160,7 @@ function HomeInner() {
       selectedDate,
       controller.signal,
       selectedDeviceIdResolved,
-      activeBaseUrl ? { baseUrl: activeBaseUrl } : undefined,
+      activeDashboardId ? { dashboardId: activeDashboardId } : undefined,
     )
       .then((result) => {
         if (!controller.signal.aborted) {
@@ -174,7 +174,7 @@ function HomeInner() {
       });
 
     return () => controller.abort();
-  }, [activeBaseUrl, selectedDate, selectedDeviceIdResolved]);
+  }, [activeDashboardId, selectedDate, selectedDeviceIdResolved]);
 
   const filteredTimeline = useMemo(() => {
     if (!timeline || !selectedDevice) return timeline;
@@ -334,7 +334,7 @@ function HomeInner() {
                 <HealthData
                   selectedDate={selectedDate}
                   deviceId={selectedDevice?.device_id}
-                  baseUrl={activeBaseUrl}
+                  dashboardId={activeDashboardId}
                 />
               )}
             </div>
