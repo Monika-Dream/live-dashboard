@@ -103,6 +103,7 @@ docker volume rm dashboard_data
 1. 报错 `invalid reference format`：多数是引号/换行符错误，确保在 PowerShell 中使用反引号续行。
 2. 页面无数据：检查 Agent 是否填了正确 token；检查 `DEVICE_TOKEN_N` 中的 `device_id` 是否唯一。
 3. 端口占用：把 `-p 3000:3000` 改成 `-p 3001:3000`，并访问 `http://127.0.0.1:3001`。
+4. 多面板不显示：不要用 `docker run -e EXTERNAL_DASHBOARDS=...` 直接传 JSON（PowerShell 可能吞掉双引号），请改用 `.env` + `--env-file`。
 
 ## Docker Compose 部署（推荐生产化）
 
@@ -218,20 +219,19 @@ EXTERNAL_DASHBOARDS=[
 只要 token 独立、`device_id` 唯一，就能同时显示多台设备。
 
 ```powershell
+# 1) 准备 .env（推荐直接从模板复制）
+Copy-Item .env.example .env -Force
+
+# 2) 编辑 .env，至少填好以下字段：
+# DEVICE_TOKEN_1..4 / HASH_SECRET / DISPLAY_NAME / SITE_TITLE / SITE_DESC / EXTERNAL_DASHBOARDS
+
+# 3) 构建并启动（关键：使用 --env-file，避免 JSON 引号在 PowerShell 中被破坏）
 docker build -t live-dashboard:local .
 docker rm -f live-dashboard
 docker run -d --name live-dashboard `
   -p 3000:3000 `
   -v dashboard_data:/data `
-  -e "HASH_SECRET=my_secure_key_123" `
-  -e "DEVICE_TOKEN_1=token-pc-1:pc-1:电脑1:windows" `
-  -e "DEVICE_TOKEN_2=token-pc-2:pc-2:电脑2:windows" `
-  -e "DEVICE_TOKEN_3=token-phone-1:phone-1:手机1:android" `
-  -e "DEVICE_TOKEN_4=token-phone-2:phone-2:手机2:android" `
-  -e "DISPLAY_NAME=xuyihong" `
-  -e "SITE_TITLE=xuyihong Now" `
-  -e "SITE_DESC=What is xuyihong doing right now?" `
-  -e "EXTERNAL_DASHBOARDS=[{""id"":""aloys23"",""name"":""DBJD-CR"",""url"":""https://livedashboard.aloys23.link""},{""id"":""ailucat"",""name"":""八九四"",""url"":""https://live.ailucat.top""},{""id"":""fun91"",""name"":""Monika"",""url"":""https://live.91fun.asia""}]" `
+  --env-file .env `
   live-dashboard:local
 ```
 
