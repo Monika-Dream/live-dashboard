@@ -11,6 +11,10 @@ import android.os.Process
 import android.provider.Settings
 
 object UsageTracker {
+    private const val EVENT_LOOKBACK_MS = 2 * 60 * 1000L
+    private const val STATS_LOOKBACK_MS = 15 * 60 * 1000L
+    private const val MAX_NON_SYSTEM_STALENESS_MS = 10 * 60 * 1000L
+
     fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode = appOps.checkOpNoThrow(
@@ -31,7 +35,7 @@ object UsageTracker {
         val usageStatsManager =
             context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
-        val eventStartTime = endTime - 60 * 1000
+        val eventStartTime = endTime - EVENT_LOOKBACK_MS
 
         // Prefer usage events: they are more reliable for current foreground app on many OEM ROMs.
         val fromEvents = latestForegroundFromEvents(
@@ -42,7 +46,7 @@ object UsageTracker {
         )
         if (fromEvents != null) return fromEvents
 
-        val startTime = endTime - 5 * 60 * 1000
+        val startTime = endTime - STATS_LOOKBACK_MS
 
         val stats = usageStatsManager.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY,
@@ -75,8 +79,10 @@ object UsageTracker {
             val events = usageStatsManager.queryEvents(startTime, endTime)
             val event = UsageEvents.Event()
 
-            var lastPackage: String? = null
-            var lastTimestamp = 0L
+            var lastAnyPackage: String? = null
+            var lastAnyTimestamp = 0L
+            var lastUserPackage: String? = null
+            var lastUserTimestamp = 0L
 
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
@@ -91,20 +97,42 @@ object UsageTracker {
 
                 if (!isForegroundEvent) continue
 
-                if (event.timeStamp >= lastTimestamp) {
-                    lastTimestamp = event.timeStamp
-                    lastPackage = packageName
+                if (event.timeStamp >= lastAnyTimestamp) {
+                    lastAnyTimestamp = event.timeStamp
+                    lastAnyPackage = packageName
+                }
+
+                if (!isIgnoredForegroundPackage(context, packageName) && event.timeStamp >= lastUserTimestamp) {
+                    lastUserTimestamp = event.timeStamp
+                    lastUserPackage = packageName
                 }
             }
 
-            if (lastPackage == null) {
+            val chosenPackage: String?
+            val chosenTimestamp: Long
+
+            if (lastUserPackage != null && (endTime - lastUserTimestamp) <= MAX_NON_SYSTEM_STALENESS_MS) {
+                chosenPackage = lastUserPackage
+                chosenTimestamp = lastUserTimestamp
+            } else if (lastAnyPackage != null) {
+                chosenPackage = lastAnyPackage
+                chosenTimestamp = lastAnyTimestamp
+            } else if (lastUserPackage != null) {
+                chosenPackage = lastUserPackage
+                chosenTimestamp = lastUserTimestamp
+            } else {
+                chosenPackage = null
+                chosenTimestamp = 0L
+            }
+
+            if (chosenPackage == null) {
                 null
             } else {
-                val appName = resolveAppName(context, lastPackage)
+                val appName = resolveAppName(context, chosenPackage)
                 ForegroundAppInfo(
-                    packageName = lastPackage,
+                    packageName = chosenPackage,
                     appName = appName,
-                    timestampMs = lastTimestamp
+                    timestampMs = chosenTimestamp
                 )
             }
         } catch (_: Exception) {
@@ -118,13 +146,34 @@ object UsageTracker {
         val top = candidates.first()
         if (!isLauncherOrSystemUi(top.packageName)) return top
 
-        // If launcher is slightly newer than a real app, prefer the real app.
-        val alternative = candidates.firstOrNull {
-            !isLauncherOrSystemUi(it.packageName) &&
-                (top.lastTimeUsed - it.lastTimeUsed) <= 30_000
+        // Launcher/system apps often steal the latest timestamp on some ROMs.
+        // Prefer the most recent non-launcher app as fallback.
+        return candidates.firstOrNull { !isLauncherOrSystemUi(it.packageName) } ?: top
+    }
+
+    private fun isIgnoredForegroundPackage(context: Context, packageName: String): Boolean {
+        if (isLauncherOrSystemUi(packageName)) return true
+
+        val lower = packageName.lowercase()
+        if (
+            lower == "com.android.settings" ||
+            lower == "com.iqoo.powersaving" ||
+            lower == "com.vivo.pem" ||
+            lower.startsWith("com.android.permissioncontroller") ||
+            lower.startsWith("com.google.android.permissioncontroller")
+        ) {
+            return true
         }
 
-        return alternative ?: top
+        val label = resolveAppName(context, packageName).lowercase()
+        return label.contains("launcher") ||
+            label.contains("system ui") ||
+            label.contains("systemui") ||
+            label.contains("桌面") ||
+            label.contains("系统桌面") ||
+            label.contains("设置") ||
+            label.contains("电池") ||
+            label.contains("电量")
     }
 
     private fun isLauncherOrSystemUi(packageName: String): Boolean {
