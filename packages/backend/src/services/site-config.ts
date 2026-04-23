@@ -22,6 +22,7 @@ const DEFAULT_DISPLAY_NAME = "xuyihong";
 const DEFAULT_FAVICON = "/favicon.ico";
 const SCRIPT_TAG_PATTERN = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
 const DEFAULT_DASHBOARDS: DashboardProfile[] = [];
+const RESERVED_DASHBOARD_ID = "local";
 
 function nonEmpty(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -44,7 +45,8 @@ function normalizeDashboardUrl(url: string | undefined): string | undefined {
 
   try {
     const parsed = new URL(trimmed);
-    if (parsed.protocol !== "https:") return undefined;
+    // Allow http for LAN/local deployments; https remains recommended for public dashboards.
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
     parsed.hash = "";
     parsed.search = "";
     parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
@@ -54,11 +56,42 @@ function normalizeDashboardUrl(url: string | undefined): string | undefined {
   }
 }
 
+function normalizeDashboardId(id: string | undefined): string | undefined {
+  const trimmed = nonEmpty(id);
+  if (!trimmed) return undefined;
+  if (trimmed.toLowerCase() === RESERVED_DASHBOARD_ID) return undefined;
+  return trimmed;
+}
+
+function parseDashboardList(raw: string): unknown[] {
+  const candidates: string[] = [raw];
+
+  const quoted = raw.match(/^(["'])([\s\S]*)\1$/);
+  if (quoted?.[2]) {
+    candidates.push(quoted[2]);
+  }
+
+  if (raw.includes('""')) {
+    candidates.push(raw.replaceAll('""', '"'));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Continue trying other candidate formats.
+    }
+  }
+
+  return [];
+}
+
 function toDashboardProfile(value: unknown): DashboardProfile | undefined {
   if (!value || typeof value !== "object") return undefined;
 
   const record = value as Record<string, unknown>;
-  const id = nonEmpty(typeof record.id === "string" ? record.id : undefined);
+  const id = normalizeDashboardId(typeof record.id === "string" ? record.id : undefined);
   const name = nonEmpty(typeof record.name === "string" ? record.name : undefined);
   const url = normalizeDashboardUrl(typeof record.url === "string" ? record.url : undefined);
   const description = nonEmpty(
@@ -74,16 +107,19 @@ function getDashboards(): DashboardProfile[] {
   const raw = nonEmpty(process.env.EXTERNAL_DASHBOARDS);
   if (!raw) return DEFAULT_DASHBOARDS;
 
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return DEFAULT_DASHBOARDS;
-    const dashboards = parsed
-      .map((entry) => toDashboardProfile(entry))
-      .filter((entry): entry is DashboardProfile => !!entry);
-    return dashboards.length > 0 ? dashboards : DEFAULT_DASHBOARDS;
-  } catch {
-    return DEFAULT_DASHBOARDS;
+  const parsed = parseDashboardList(raw);
+  if (parsed.length === 0) return DEFAULT_DASHBOARDS;
+
+  const uniqueDashboards = new Map<string, DashboardProfile>();
+  for (const entry of parsed) {
+    const dashboard = toDashboardProfile(entry);
+    if (!dashboard) continue;
+    if (!uniqueDashboards.has(dashboard.id)) {
+      uniqueDashboards.set(dashboard.id, dashboard);
+    }
   }
+
+  return uniqueDashboards.size > 0 ? Array.from(uniqueDashboards.values()) : DEFAULT_DASHBOARDS;
 }
 export function getSiteConfig(): SiteConfig {
   const displayName = nonEmpty(process.env.DISPLAY_NAME) ?? DEFAULT_DISPLAY_NAME;
