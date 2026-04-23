@@ -88,7 +88,14 @@ jobs:
         working-directory: packages/android-agent
         run: gradle -q :app:assembleRelease
       - name: Prepare APK artifact
-        run: cp packages/android-agent/app/build/outputs/apk/release/app-release.apk live-dashboard-android-agent.apk
+        run: |
+          APK_PATH=$(find packages/android-agent/app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found under packages/android-agent/app/build/outputs/apk/release"
+            ls -la packages/android-agent/app/build/outputs/apk/release || true
+            exit 1
+          fi
+          cp "$APK_PATH" live-dashboard-android-agent.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-agent
