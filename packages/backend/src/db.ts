@@ -113,6 +113,20 @@ db.run(`
   ON health_records(type, recorded_at)
 `);
 
+// ── Device consent table (privacy/compliance) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS device_consents (
+    device_id TEXT PRIMARY KEY,
+    consent_version INTEGER NOT NULL DEFAULT 1,
+    activity_reporting INTEGER NOT NULL DEFAULT 0,
+    health_reporting INTEGER NOT NULL DEFAULT 0,
+    granted_scopes TEXT NOT NULL DEFAULT '[]',
+    granted_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+
 // ── HMAC hash secret validation ──
 
 const HASH_SECRET = process.env.HASH_SECRET || "";
@@ -180,6 +194,74 @@ export const markOfflineDevices = db.prepare(`
 export const cleanupOldActivities = db.prepare(`
   DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
 `);
+
+export const upsertDeviceConsent = db.prepare(`
+  INSERT INTO device_consents (
+    device_id,
+    consent_version,
+    activity_reporting,
+    health_reporting,
+    granted_scopes,
+    granted_at,
+    updated_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(device_id) DO UPDATE SET
+    consent_version = excluded.consent_version,
+    activity_reporting = excluded.activity_reporting,
+    health_reporting = excluded.health_reporting,
+    granted_scopes = excluded.granted_scopes,
+    granted_at = excluded.granted_at,
+    updated_at = excluded.updated_at
+`);
+
+const getDeviceConsentById = db.prepare(`
+  SELECT
+    device_id,
+    consent_version,
+    activity_reporting,
+    health_reporting,
+    granted_scopes,
+    granted_at,
+    updated_at
+  FROM device_consents
+  WHERE device_id = ?
+  LIMIT 1
+`);
+
+type DeviceConsentRow = {
+  device_id: string;
+  consent_version: number;
+  activity_reporting: number;
+  health_reporting: number;
+  granted_scopes: string;
+  granted_at: string;
+  updated_at: string;
+};
+
+const REQUIRE_EXPLICIT_CONSENT = /^(1|true|yes)$/i.test(
+  process.env.REQUIRE_EXPLICIT_CONSENT || ""
+);
+
+export function isExplicitConsentRequired(): boolean {
+  return REQUIRE_EXPLICIT_CONSENT;
+}
+
+export function getDeviceConsent(deviceId: string): DeviceConsentRow | null {
+  return (getDeviceConsentById.get(deviceId) as DeviceConsentRow | undefined) || null;
+}
+
+export function canReportActivity(deviceId: string): boolean {
+  if (!REQUIRE_EXPLICIT_CONSENT) return true;
+  const consent = getDeviceConsent(deviceId);
+  return !!consent && consent.activity_reporting === 1;
+}
+
+export function canReportHealth(deviceId: string): boolean {
+  if (!REQUIRE_EXPLICIT_CONSENT) return true;
+  const consent = getDeviceConsent(deviceId);
+  return !!consent && consent.health_reporting === 1;
+}
 
 export function cleanupUnconfiguredDeviceData(allowedDeviceIds: string[]): {
   deviceStatesDeleted: number;

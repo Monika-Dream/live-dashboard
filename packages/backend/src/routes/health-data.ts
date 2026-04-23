@@ -1,5 +1,5 @@
 import { authenticateToken, isConfiguredDeviceId } from "../middleware/auth";
-import { db } from "../db";
+import { canReportHealth, db } from "../db";
 import type { HealthRecord } from "../types";
 
 const MAX_RECORDS_PER_REQUEST = 500;
@@ -32,6 +32,13 @@ export async function handleHealthData(req: Request): Promise<Response> {
   const device = authenticateToken(req.headers.get("authorization"));
   if (!device) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!canReportHealth(device.device_id)) {
+    return Response.json(
+      { error: "Consent required: health_reporting" },
+      { status: 403 }
+    );
   }
 
   let body: any;

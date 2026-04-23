@@ -22,6 +22,7 @@ on:
 
 jobs:
   build-windows:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     permissions:
       contents: read
@@ -43,6 +44,7 @@ jobs:
           path: agents/windows/dist/live-dashboard-agent.exe
 
   build-macos:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     permissions:
       contents: read
@@ -93,7 +95,7 @@ jobs:
           path: live-dashboard-android-agent.apk
 
   release:
-    needs: [build-windows, build-macos, build-android]
+    needs: [build-android]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -101,24 +103,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: windows-agent
-          path: windows-agent
-      - uses: actions/download-artifact@v4
-        with:
-          name: macos-agent
-          path: macos-agent
-      - uses: actions/download-artifact@v4
-        with:
           name: android-agent
           path: android-agent
       - name: Prepare release assets
         run: |
-          mv windows-agent/live-dashboard-agent.exe .
-          cd macos-agent && zip ../live-dashboard-agent-macos.zip * && cd ..
           mv android-agent/live-dashboard-android-agent.apk .
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            live-dashboard-agent.exe
-            live-dashboard-agent-macos.zip
             live-dashboard-android-agent.apk

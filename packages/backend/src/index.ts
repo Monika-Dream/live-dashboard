@@ -7,6 +7,7 @@ import { handleTimeline } from "./routes/timeline";
 import { handleHealth } from "./routes/health";
 import { handleHealthData, handleHealthDataQuery } from "./routes/health-data";
 import { handleHealthWebhook } from "./routes/health-webhook";
+import { handleConsentGet, handleConsentPost } from "./routes/consent";
 import { handleConfig } from "./routes/config";
 import { handleProxy } from "./routes/proxy";
 import { injectSiteConfig } from "./services/site-config";
@@ -98,6 +99,10 @@ const server = Bun.serve({
         response = handleHealthDataQuery(url);
       } else if (pathname === "/api/health-webhook" && req.method === "POST") {
         response = await handleHealthWebhook(req);
+      } else if (pathname === "/api/consent" && req.method === "GET") {
+        response = handleConsentGet(req);
+      } else if (pathname === "/api/consent" && req.method === "POST") {
+        response = await handleConsentPost(req);
       } else if (pathname === "/api/config" && req.method === "GET") {
         response = handleConfig();
       } else if (pathname === "/api/proxy" && req.method === "GET") {

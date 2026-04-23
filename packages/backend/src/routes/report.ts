@@ -2,7 +2,7 @@ import { authenticateToken } from "../middleware/auth";
 import { resolveAppName } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
 import { processDisplayTitle } from "../services/privacy-tiers";
-import { insertActivity, upsertDeviceState, hmacTitle } from "../db";
+import { canReportActivity, insertActivity, upsertDeviceState, hmacTitle } from "../db";
 
 const MAX_TITLE_LENGTH = 256;
 
@@ -11,6 +11,13 @@ export async function handleReport(req: Request): Promise<Response> {
   const device = authenticateToken(req.headers.get("authorization"));
   if (!device) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!canReportActivity(device.device_id)) {
+    return Response.json(
+      { error: "Consent required: activity_reporting" },
+      { status: 403 }
+    );
   }
 
   // Parse body
