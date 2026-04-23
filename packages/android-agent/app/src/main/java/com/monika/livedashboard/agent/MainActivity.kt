@@ -84,7 +84,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
     var reportBattery by rememberSaveable { mutableStateOf(initial.reportBattery) }
     var autoStartOnBoot by rememberSaveable { mutableStateOf(initial.autoStartOnBoot) }
     var tokenVisible by rememberSaveable { mutableStateOf(false) }
-    var statusText by rememberSaveable { mutableStateOf("Idle") }
+    var statusText by rememberSaveable { mutableStateOf("空闲") }
 
     val usagePermissionGranted = UsageTracker.hasUsageStatsPermission(context)
 
@@ -95,9 +95,9 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Live Dashboard Agent", style = MaterialTheme.typography.headlineSmall)
+        Text("实时看板助手", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "User consent is required before activity reporting. No root required.",
+            "上报设备活动前需要用户授权，无需 root。",
             style = MaterialTheme.typography.bodyMedium
         )
 
@@ -107,7 +107,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             value = serverUrl,
             onValueChange = { serverUrl = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Server URL") },
+            label = { Text("服务器地址") },
             singleLine = true,
             placeholder = { Text("https://example.com") }
         )
@@ -116,7 +116,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             value = token,
             onValueChange = { token = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Token") },
+            label = { Text("Token 密钥") },
             singleLine = true,
             visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation()
         )
@@ -125,7 +125,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Show token")
+            Text("显示密钥")
             Switch(checked = tokenVisible, onCheckedChange = { tokenVisible = it })
         }
 
@@ -133,7 +133,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             value = heartbeatText,
             onValueChange = { heartbeatText = it.filter(Char::isDigit) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Heartbeat seconds (10-50)") },
+            label = { Text("心跳间隔（秒，10-50）") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
@@ -142,7 +142,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Report foreground app activity")
+            Text("上报前台应用活动")
             Switch(checked = reportActivity, onCheckedChange = { reportActivity = it })
         }
 
@@ -150,7 +150,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Attach battery state")
+            Text("附带电量状态")
             Switch(checked = reportBattery, onCheckedChange = { reportBattery = it })
         }
 
@@ -158,7 +158,7 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Auto start on boot")
+            Text("开机自启")
             Switch(checked = autoStartOnBoot, onCheckedChange = { autoStartOnBoot = it })
         }
 
@@ -168,20 +168,20 @@ private fun AgentScreen(settingsStore: SettingsStore) {
         ) {
             Checkbox(checked = consentGiven, onCheckedChange = { consentGiven = it })
             Text(
-                "I understand and agree to upload the selected device activity data.",
+                "我已了解并同意上传所选设备活动数据。",
                 modifier = Modifier.padding(top = 12.dp)
             )
         }
 
         Text(
-            if (usagePermissionGranted) "Usage access: granted"
-            else "Usage access: required",
+            if (usagePermissionGranted) "使用情况访问权限：已授权"
+            else "使用情况访问权限：未授权",
             style = MaterialTheme.typography.bodyMedium
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { UsageTracker.openUsageAccessSettings(context) }) {
-                Text("Open usage permission")
+                Text("打开使用情况访问权限")
             }
         }
 
@@ -191,11 +191,11 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                     val heartbeat = heartbeatText.toIntOrNull()?.coerceIn(10, 50) ?: 30
                     val normalizedServer = serverUrl.trim().trimEnd('/')
                     if (!isServerUrlAllowed(normalizedServer)) {
-                        statusText = "Server URL must be HTTPS, except localhost."
+                        statusText = "服务器地址必须使用 HTTPS（localhost 除外）。"
                         return@Button
                     }
                     if (token.trim().isBlank()) {
-                        statusText = "Token is required."
+                        statusText = "必须填写 Token 密钥。"
                         return@Button
                     }
 
@@ -211,31 +211,31 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                             isRunningEnabled = settingsStore.load().isRunningEnabled
                         )
                     )
-                    statusText = "Settings saved."
+                    statusText = "设置已保存。"
                 }
             ) {
-                Text("Save settings")
+                Text("保存设置")
             }
 
             Button(
                 onClick = {
                     if (!consentGiven) {
-                        statusText = "Consent is required before start."
+                        statusText = "启动前必须先同意授权。"
                         return@Button
                     }
                     if (!reportActivity) {
-                        statusText = "Enable activity reporting first."
+                        statusText = "请先开启活动上报。"
                         return@Button
                     }
                     if (!UsageTracker.hasUsageStatsPermission(context)) {
-                        statusText = "Grant usage permission first."
+                        statusText = "请先授予使用情况访问权限。"
                         return@Button
                     }
 
                     val heartbeat = heartbeatText.toIntOrNull()?.coerceIn(10, 50) ?: 30
                     val normalizedServer = serverUrl.trim().trimEnd('/')
                     if (!isServerUrlAllowed(normalizedServer) || token.trim().isBlank()) {
-                        statusText = "Please provide a valid server URL and token."
+                        statusText = "请填写有效的服务器地址和 Token 密钥。"
                         return@Button
                     }
 
@@ -256,10 +256,10 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                         action = TrackingService.ACTION_START
                     }
                     ContextCompat.startForegroundService(context, serviceIntent)
-                    statusText = "Tracking started."
+                    statusText = "监听已启动。"
                 }
             ) {
-                Text("Start")
+                Text("开始监听")
             }
 
             Button(
@@ -269,15 +269,15 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                         action = TrackingService.ACTION_STOP
                     }
                     context.startService(serviceIntent)
-                    statusText = "Tracking stopped."
+                    statusText = "监听已停止。"
                 }
             ) {
-                Text("Stop")
+                Text("停止监听")
             }
         }
 
         HorizontalDivider()
-        Text("Status: $statusText")
+        Text("状态：$statusText")
     }
 }
 

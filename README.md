@@ -239,8 +239,8 @@ Invoke-RestMethod http://127.0.0.1:3000/api/current | Select-Object -ExpandPrope
 
 | 平台 | 下载文件 | 配置指南 |
 |------|---------|---------|
-| Windows | 待发布（可通过 workflow_dispatch 手动构建） | [Wiki - Windows Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Windows) |
-| macOS | 待发布（可通过 workflow_dispatch 手动构建） | [Wiki - macOS Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-macOS) |
+| Windows | 右边下载 | [Wiki - Windows Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Windows) |
+| macOS | 右边下载 | [Wiki - macOS Agent](https://github.com/Monika-Dream/live-dash（board/wiki/Agent-配置-macOS) |
 | Android | [live-dashboard-android-agent.apk](https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-android-agent.apk) | [仓库文档 - Android Agent](docs/android-agent.md) |
 
 说明：首次打 Tag 并生成 Release 前，上述 direct download 链接会返回 404。

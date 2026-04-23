@@ -60,7 +60,7 @@ class TrackingService : Service() {
 
         startForeground(
             NOTIFICATION_ID,
-            buildNotification("Preparing tracker")
+            buildNotification("正在准备监听")
         )
 
         trackingJob = serviceScope.launch {
@@ -73,13 +73,13 @@ class TrackingService : Service() {
                 }
 
                 if (!settings.consentGiven || !settings.reportActivity) {
-                    updateNotification("Consent required")
+                    updateNotification("需要先同意授权")
                     delay(5_000)
                     continue
                 }
 
                 if (!UsageTracker.hasUsageStatsPermission(this@TrackingService)) {
-                    updateNotification("Usage access is not granted")
+                    updateNotification("未授予使用情况访问权限")
                     delay(5_000)
                     continue
                 }
@@ -97,9 +97,9 @@ class TrackingService : Service() {
                         val sent = ApiReporter.postReport(settings, appInfo, extras)
                         if (sent) {
                             lastSentKey = dedupKey
-                            updateNotification("Reporting: ${appInfo.appName}")
+                            updateNotification("正在上报：${appInfo.appName}")
                         } else {
-                            updateNotification("Report failed, retrying")
+                            updateNotification("上报失败，正在重试")
                         }
                     }
                 }
@@ -121,10 +121,10 @@ class TrackingService : Service() {
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Live Dashboard Agent",
+            "实时看板助手",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Uploads foreground app status to Live Dashboard"
+            description = "持续上报手机前台应用状态到实时看板"
         }
 
         val manager = getSystemService(NotificationManager::class.java)
@@ -133,7 +133,7 @@ class TrackingService : Service() {
 
     private fun buildNotification(text: String) = NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(android.R.drawable.stat_notify_sync)
-        .setContentTitle("Live Dashboard Agent")
+        .setContentTitle("实时看板助手")
         .setContentText(text)
         .setOngoing(true)
         .build()
