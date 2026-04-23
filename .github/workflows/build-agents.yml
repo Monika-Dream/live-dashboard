@@ -84,14 +84,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.7
-      - name: Build Android release APK
+      - name: Build Android signed APK
         working-directory: packages/android-agent
-        run: gradle -q :app:assembleRelease
+        run: gradle -q :app:assembleDebug
       - name: Prepare APK artifact
         run: |
-          APK_PATH=$(find packages/android-agent/app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" | head -n 1)
+          APK_PATH=$(find packages/android-agent/app/build/outputs/apk/debug -maxdepth 1 -type f -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "No APK found under packages/android-agent/app/build/outputs/apk/release"
+            echo "No APK found under packages/android-agent/app/build/outputs/apk/debug"
+            ls -la packages/android-agent/app/build/outputs/apk/debug || true
             ls -la packages/android-agent/app/build/outputs/apk/release || true
             exit 1
           fi
