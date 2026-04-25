@@ -177,6 +177,55 @@ docker compose up -d --build
 - 不需要修改 `.env`。
 - 不需要重新构建 Docker 镜像。
 
+### 多人面板部署方法（推荐）
+
+你可以用下面这个最简单流程：
+
+1. 先把主站部署好（Windows 或 Linux 任意一种方式都行）。
+2. 在网页“多人面板管理”里输入管理密码解锁。
+3. 逐个添加外部面板：
+	- 面板 ID：例如 `friend-alice`
+	- 显示名称：例如 `Alice`
+	- 面板 URL：例如 `https://alice.example.com`
+4. 点击“添加 / 更新面板”，页面会立即出现新面板。
+
+补充说明：
+- 这种方式会把面板保存到数据库卷里，容器重启后依然保留。
+- 如果你执行了清空数据卷（例如 `docker compose down -v`），数据库里的面板也会被清掉。
+
+---
+
+## 多设备部署方法
+
+只要每台设备使用不同的 `DEVICE_TOKEN_N`，就可以同时上报并在同一个看板显示。
+
+Token 格式固定为：
+
+`token:device_id:device_name:platform`
+
+`platform` 常用值：
+- Windows 设备：`windows`
+- Android 设备：`android`
+- macOS 设备：`macos`
+- Linux 设备：`linux`
+
+### 示例：2 台电脑 + 2 台手机
+
+```env
+DEVICE_TOKEN_1=token_pc_1:pc-1:Office-PC:windows
+DEVICE_TOKEN_2=token_phone_1:phone-1:My-Phone:android
+DEVICE_TOKEN_3=token_pc_2:pc-2:Home-Mac:macos
+DEVICE_TOKEN_4=token_phone_2:phone-2:Backup-Phone:android
+```
+
+把这些写入 `.env` 后，执行：
+
+```powershell
+docker compose up -d
+```
+
+然后在每台客户端里填对应 token，即可在网页上同时看到多设备状态。
+
 ---
 
 ## 常用命令
