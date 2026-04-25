@@ -84,14 +84,53 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.7
-      - name: Build Android signed APK
+      - name: Validate signing secrets for tag releases
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for key in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Tag release requires Android signing secrets."
+            exit 1
+          fi
+      - name: Decode Android keystore
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-release.keystore"
+      - name: Build Android APK
         working-directory: packages/android-agent
-        run: gradle -q :app:assembleDebug
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/android-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            gradle -q :app:assembleRelease
+          else
+            gradle -q :app:assembleDebug
+          fi
       - name: Prepare APK artifact
         run: |
-          APK_PATH=$(find packages/android-agent/app/build/outputs/apk/debug -maxdepth 1 -type f -name "*.apk" | head -n 1)
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            APK_PATH=$(find packages/android-agent/app/build/outputs/apk/release -maxdepth 1 -type f -name "*release*.apk" | head -n 1)
+          else
+            APK_PATH=$(find packages/android-agent/app/build/outputs/apk/debug -maxdepth 1 -type f -name "*.apk" | head -n 1)
+          fi
           if [ -z "$APK_PATH" ]; then
-            echo "No APK found under packages/android-agent/app/build/outputs/apk/debug"
+            echo "No APK found under expected output directory"
             ls -la packages/android-agent/app/build/outputs/apk/debug || true
             ls -la packages/android-agent/app/build/outputs/apk/release || true
             exit 1
