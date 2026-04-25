@@ -245,15 +245,15 @@ Invoke-RestMethod http://127.0.0.1:3000/api/current | Select-Object -ExpandPrope
 
 ## Agent 获取与配置
 
-当前仓库以服务端 + Android Agent 源码为主，按下面方式获取：
+按你的要求：Windows / macOS 使用原作者应用链接，Android 使用你的 App 链接。
 
 | 平台 | 获取方式 | 配置指南 |
 |------|---------|---------|
-| Windows | 使用仓库内一键部署脚本启动服务端并获取 token | [deploy/windows-dockerdesktop-local.ps1](deploy/windows-dockerdesktop-local.ps1) |
-| macOS | 使用仓库内本地启动脚本（包含后端/前端与 Agent 运行流程） | [start.sh](start.sh) |
-| Android | 从源码构建 APK（Android Studio） | [docs/android-agent.md](docs/android-agent.md) / [packages/android-agent](packages/android-agent) |
+| Windows | [原作者 Windows Agent（Releases）](https://github.com/Monika-Dream/live-dashboard/releases) | [Wiki - Windows Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Windows) |
+| macOS | [原作者 macOS Agent（Releases）](https://github.com/Monika-Dream/live-dashboard/releases) | [Wiki - macOS Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-macOS) |
+| Android | [live-dashboard-android-agent.apk](https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-android-agent.apk) | [docs/android-agent.md](docs/android-agent.md) / [packages/android-agent](packages/android-agent) |
 
-说明：如果你后续发布了自己的 Release，可在这里补充对应下载链接。
+说明：Windows/macOS 链接指向原作者仓库；Android 链接指向你的仓库 Release 产物。
 
 ## 主题
 
