@@ -127,6 +127,19 @@ db.run(`
   )
 `);
 
+// ── External dashboards (runtime managed) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS external_dashboards (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 // ── HMAC hash secret validation ──
 
 const HASH_SECRET = process.env.HASH_SECRET || "";
@@ -194,6 +207,51 @@ export const markOfflineDevices = db.prepare(`
 export const cleanupOldActivities = db.prepare(`
   DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
 `);
+
+const getExternalDashboardsStmt = db.prepare(`
+  SELECT id, name, url, description
+  FROM external_dashboards
+  ORDER BY created_at ASC
+`);
+
+const upsertExternalDashboardStmt = db.prepare(`
+  INSERT INTO external_dashboards (id, name, url, description, created_at, updated_at)
+  VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+  ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    url = excluded.url,
+    description = excluded.description,
+    updated_at = datetime('now')
+`);
+
+const deleteExternalDashboardStmt = db.prepare(`
+  DELETE FROM external_dashboards
+  WHERE id = ?
+`);
+
+export type ExternalDashboardRecord = {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+};
+
+export function getExternalDashboards(): ExternalDashboardRecord[] {
+  return getExternalDashboardsStmt.all() as ExternalDashboardRecord[];
+}
+
+export function upsertExternalDashboard(record: ExternalDashboardRecord): void {
+  upsertExternalDashboardStmt.run(
+    record.id,
+    record.name,
+    record.url,
+    record.description ?? "",
+  );
+}
+
+export function deleteExternalDashboard(id: string): number {
+  return deleteExternalDashboardStmt.run(id).changes;
+}
 
 export const upsertDeviceConsent = db.prepare(`
   INSERT INTO device_consents (

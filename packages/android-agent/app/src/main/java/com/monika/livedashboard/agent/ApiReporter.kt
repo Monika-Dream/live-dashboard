@@ -62,6 +62,12 @@ object ApiReporter {
             extras.batteryCharging?.let { extraJson.put("battery_charging", it) }
         }
         extraJson.put("network_type", extras.networkType)
+        extras.customAppName
+            ?.takeIf { it.isNotBlank() }
+            ?.let { extraJson.put("custom_app_name", it.take(64)) }
+        extras.customDescription
+            ?.takeIf { it.isNotBlank() }
+            ?.let { extraJson.put("custom_description", it.take(256)) }
         extras.music?.let { music ->
             val musicJson = JSONObject()
                 .put("title", music.title.take(256))

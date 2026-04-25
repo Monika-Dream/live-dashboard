@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useConfig, useConfigLoader, ConfigContext } from "@/hooks/useConfig";
 import type { CurrentResponse, DashboardProfile, DeviceState } from "@/lib/api";
-import { fetchCurrent, fetchHealthData } from "@/lib/api";
+import { createDashboard, fetchConfig, fetchCurrent, fetchHealthData, removeDashboard } from "@/lib/api";
 import Header from "@/components/Header";
 import CurrentStatus from "@/components/CurrentStatus";
 import DeviceCard from "@/components/DeviceCard";
@@ -14,6 +14,7 @@ import HealthData from "@/components/HealthData";
 import SiteMetadataSync from "@/components/SiteMetadataSync";
 
 const SNAPSHOT_POLL_INTERVAL = 20_000;
+const ADMIN_TOKEN_STORAGE_KEY = "live_dashboard_admin_token";
 
 interface DashboardOption extends DashboardProfile {
   isPrimary: boolean;
@@ -42,6 +43,76 @@ export default function Home() {
 function HomeInner() {
   const config = useConfig();
   const { displayName } = config;
+  const [runtimeDashboards, setRuntimeDashboards] = useState<DashboardProfile[]>(config.dashboards);
+  const [adminToken, setAdminToken] = useState("");
+  const [adminStatus, setAdminStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRuntimeDashboards(config.dashboards);
+  }, [config.dashboards]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+    if (saved) setAdminToken(saved);
+  }, []);
+
+  const handleAdminTokenChange = useCallback((value: string) => {
+    setAdminToken(value);
+    if (typeof window === "undefined") return;
+    if (value.trim()) {
+      window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, value.trim());
+    } else {
+      window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+    }
+  }, []);
+
+  const refreshDashboardConfig = useCallback(async () => {
+    const latest = await fetchConfig();
+    setRuntimeDashboards(latest.dashboards);
+  }, []);
+
+  const handleDashboardCreate = useCallback(async (payload: DashboardProfile) => {
+    if (!adminToken.trim()) {
+      setAdminStatus("请先填写管理 Token");
+      return;
+    }
+
+    try {
+      setAdminStatus("正在保存面板...");
+      const dashboards = await createDashboard(payload, adminToken.trim());
+      setRuntimeDashboards(dashboards);
+      setAdminStatus("面板已保存");
+    } catch {
+      setAdminStatus("保存失败：请检查 Token 和面板地址");
+    }
+  }, [adminToken]);
+
+  const handleDashboardDelete = useCallback(async (id: string) => {
+    if (!adminToken.trim()) {
+      setAdminStatus("请先填写管理 Token");
+      return;
+    }
+
+    try {
+      setAdminStatus("正在删除面板...");
+      const dashboards = await removeDashboard(id, adminToken.trim());
+      setRuntimeDashboards(dashboards);
+      setAdminStatus("面板已删除");
+    } catch {
+      setAdminStatus("删除失败：请检查 Token");
+    }
+  }, [adminToken]);
+
+  const handleDashboardReload = useCallback(async () => {
+    try {
+      await refreshDashboardConfig();
+      setAdminStatus("面板列表已刷新");
+    } catch {
+      setAdminStatus("刷新失败");
+    }
+  }, [refreshDashboardConfig]);
+
   const dashboards = useMemo<DashboardOption[]>(() => {
     return [
       {
@@ -51,12 +122,12 @@ function HomeInner() {
         description: `${displayName} 的主面板`,
         isPrimary: true,
       },
-      ...config.dashboards.map((dashboard) => ({
+      ...runtimeDashboards.map((dashboard) => ({
         ...dashboard,
         isPrimary: false,
       })),
     ];
-  }, [config.dashboards, displayName]);
+  }, [runtimeDashboards, displayName]);
 
   const [selectedDashboardId, setSelectedDashboardId] = useState("local");
   const [dashboardSnapshots, setDashboardSnapshots] = useState<Record<string, DashboardSnapshot>>({});
@@ -231,6 +302,16 @@ function HomeInner() {
         serverTime={current?.server_time}
         viewerCount={viewerCount}
         displayName={activeDashboard?.name ?? displayName}
+      />
+
+      <DashboardAdminPanel
+        dashboards={dashboards.filter((item) => !item.isPrimary)}
+        adminToken={adminToken}
+        adminStatus={adminStatus}
+        onAdminTokenChange={handleAdminTokenChange}
+        onCreate={handleDashboardCreate}
+        onDelete={handleDashboardDelete}
+        onReload={handleDashboardReload}
       />
 
       <DashboardSwitcher
@@ -445,6 +526,110 @@ function DashboardSwitcher({
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+function DashboardAdminPanel({
+  dashboards,
+  adminToken,
+  adminStatus,
+  onAdminTokenChange,
+  onCreate,
+  onDelete,
+  onReload,
+}: {
+  dashboards: DashboardProfile[];
+  adminToken: string;
+  adminStatus: string | null;
+  onAdminTokenChange: (token: string) => void;
+  onCreate: (payload: DashboardProfile) => void;
+  onDelete: (id: string) => void;
+  onReload: () => void;
+}) {
+  const [id, setId] = useState("");
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [description, setDescription] = useState("");
+
+  return (
+    <section className="mb-4 vn-bubble">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-text-muted)]">
+          Panel Admin
+        </p>
+        <button type="button" onClick={onReload} className="pill-btn text-xs px-3 py-1">刷新列表</button>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        <input
+          value={adminToken}
+          onChange={(event) => onAdminTokenChange(event.target.value)}
+          placeholder="管理 Token（ADMIN_TOKEN）"
+          className="panel-chip w-full text-xs px-3 py-2"
+        />
+        <input
+          value={id}
+          onChange={(event) => setId(event.target.value)}
+          placeholder="面板 ID（如: friend-1）"
+          className="panel-chip w-full text-xs px-3 py-2"
+        />
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="显示名称"
+          className="panel-chip w-full text-xs px-3 py-2"
+        />
+        <input
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder="面板 URL（https://...）"
+          className="panel-chip w-full text-xs px-3 py-2"
+        />
+        <input
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="描述（可选）"
+          className="panel-chip w-full text-xs px-3 py-2 md:col-span-2"
+        />
+      </div>
+
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => {
+            onCreate({
+              id: id.trim(),
+              name: name.trim(),
+              url: url.trim(),
+              description: description.trim() || undefined,
+            });
+          }}
+          className="pill-btn text-xs px-3 py-1"
+        >
+          添加 / 更新面板
+        </button>
+      </div>
+
+      {adminStatus && (
+        <p className="text-xs text-[var(--color-text-muted)] mt-2">{adminStatus}</p>
+      )}
+
+      {dashboards.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {dashboards.map((dashboard) => (
+            <button
+              key={dashboard.id}
+              type="button"
+              onClick={() => onDelete(dashboard.id)}
+              className="panel-chip text-xs px-3 py-1"
+              title={`删除 ${dashboard.name}`}
+            >
+              删除 {dashboard.name}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

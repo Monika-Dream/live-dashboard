@@ -60,11 +60,23 @@ export async function handleReport(req: Request): Promise<Response> {
     return Response.json({ ok: true });
   }
 
-  // Resolve app name
-  const appName = resolveAppName(appId, device.platform, windowTitle);
+  let customAppName = "";
+  let customDescription = "";
+
+  if (body.extra && typeof body.extra === "object" && !Array.isArray(body.extra)) {
+    if (typeof body.extra.custom_app_name === "string") {
+      customAppName = body.extra.custom_app_name.trim().slice(0, 64);
+    }
+    if (typeof body.extra.custom_description === "string") {
+      customDescription = body.extra.custom_description.trim().slice(0, 256);
+    }
+  }
+
+  // Resolve app name (prefer custom override from trusted device payload)
+  const appName = customAppName || resolveAppName(appId, device.platform, windowTitle);
 
   // Privacy: generate display_title (safe for public), then discard raw window_title
-  const displayTitle = processDisplayTitle(appName, windowTitle);
+  const displayTitle = customDescription || processDisplayTitle(appName, windowTitle);
 
   // Dedup: HMAC hash of the original title (keyed, not reversible)
   const timeBucket = Math.floor(Date.now() / 10000);
@@ -79,6 +91,12 @@ export async function handleReport(req: Request): Promise<Response> {
     }
     if (typeof body.extra.battery_charging === "boolean") {
       extra.battery_charging = body.extra.battery_charging;
+    }
+    if (customAppName) {
+      extra.custom_app_name = customAppName;
+    }
+    if (customDescription) {
+      extra.custom_description = customDescription;
     }
     const rawMusic = body.extra.music;
     if (rawMusic != null && typeof rawMusic === "object" && !Array.isArray(rawMusic)) {

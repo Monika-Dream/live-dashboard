@@ -13,8 +13,9 @@ export default function CurrentStatus({ device, displayName: displayNameProp }: 
   const active = device?.is_online === 1 ? device : undefined;
 
   const isOnline = !!active;
+  const customDescription = active?.extra?.custom_description?.trim();
   const description = active
-    ? getAppDescription(active.app_name, active.display_title, active.extra?.music)
+    ? (customDescription || getAppDescription(active.app_name, active.display_title, active.extra?.music))
     : null;
 
   // Battery info from the active device

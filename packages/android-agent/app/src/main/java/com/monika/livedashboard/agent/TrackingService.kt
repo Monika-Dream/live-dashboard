@@ -127,23 +127,36 @@ class TrackingService : Service() {
                     continue
                 }
 
-                val extras = DeviceContextProvider.readExtras(this@TrackingService)
+                val customRule = settings.customRules.firstOrNull {
+                    it.packageName.equals(appInfo.packageName, ignoreCase = true)
+                }
+                val effectiveAppInfo = if (customRule != null) {
+                    appInfo.copy(appName = customRule.customAppName)
+                } else {
+                    appInfo
+                }
+
+                val extras = DeviceContextProvider.readExtras(
+                    context = this@TrackingService,
+                    customAppName = customRule?.customAppName,
+                    customDescription = customRule?.customDescription,
+                )
                 val musicKey = extras.music
                     ?.let { "${it.app.orEmpty()}|${it.title}|${it.artist.orEmpty()}" }
                     ?: ""
-                val timeBucket = appInfo.timestampMs / 10_000L
-                val dedupKey = "${appInfo.packageName}:$timeBucket:$musicKey"
+                val timeBucket = effectiveAppInfo.timestampMs / 10_000L
+                val dedupKey = "${effectiveAppInfo.packageName}:$timeBucket:$musicKey:${customRule?.customDescription.orEmpty()}"
                 val now = System.currentTimeMillis()
                 val forceHeartbeat = now - lastSuccessfulReportAt >= FORCE_REPORT_INTERVAL_MS
 
                 if (dedupKey != lastSentKey || forceHeartbeat) {
-                    val sent = ApiReporter.postReport(settings, appInfo, extras)
+                    val sent = ApiReporter.postReport(settings, effectiveAppInfo, extras)
                     if (sent) {
                         lastSentKey = dedupKey
                         lastSuccessfulReportAt = now
                         setServiceState(
-                            text = buildReportStatus(appInfo, extras),
-                            logText = "上报成功：${appInfo.appName}${formatMusicSuffix(extras.music)}"
+                            text = buildReportStatus(effectiveAppInfo, extras),
+                            logText = "上报成功：${effectiveAppInfo.appName}${formatMusicSuffix(extras.music)}"
                         )
                     } else {
                         setServiceState("上报失败，正在重试")

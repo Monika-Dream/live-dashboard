@@ -20,7 +20,8 @@ class SettingsStore(context: Context) {
             reportActivity = prefs.getBoolean(KEY_REPORT_ACTIVITY, true),
             reportBattery = prefs.getBoolean(KEY_REPORT_BATTERY, true),
             autoStartOnBoot = prefs.getBoolean(KEY_AUTO_START, false),
-            isRunningEnabled = prefs.getBoolean(KEY_RUNNING_ENABLED, false)
+            isRunningEnabled = prefs.getBoolean(KEY_RUNNING_ENABLED, false),
+            customRules = readCustomRules(),
         )
     }
 
@@ -34,6 +35,7 @@ class SettingsStore(context: Context) {
             .putBoolean(KEY_REPORT_BATTERY, settings.reportBattery)
             .putBoolean(KEY_AUTO_START, settings.autoStartOnBoot)
             .putBoolean(KEY_RUNNING_ENABLED, settings.isRunningEnabled)
+                .putString(KEY_CUSTOM_RULES, writeCustomRules(settings.customRules).toString())
             .apply()
     }
 
@@ -85,6 +87,48 @@ class SettingsStore(context: Context) {
         prefs.edit().putString(KEY_LOGS, jsonArray.toString()).apply()
     }
 
+    private fun readCustomRules(): List<AppCustomRule> {
+        val raw = prefs.getString(KEY_CUSTOM_RULES, "[]") ?: "[]"
+        return try {
+            val array = JSONArray(raw)
+            val rules = mutableListOf<AppCustomRule>()
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val packageName = item.optString("package_name").trim()
+                val customAppName = item.optString("custom_app_name").trim()
+                val customDescription = item.optString("custom_description").trim()
+
+                if (packageName.isBlank() || customAppName.isBlank()) continue
+
+                rules.add(
+                    AppCustomRule(
+                        packageName = packageName,
+                        customAppName = customAppName,
+                        customDescription = customDescription.ifBlank { null },
+                    )
+                )
+            }
+            rules
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun writeCustomRules(rules: List<AppCustomRule>): JSONArray {
+        val array = JSONArray()
+        rules.forEach { rule ->
+            if (rule.packageName.isBlank() || rule.customAppName.isBlank()) return@forEach
+            val item = org.json.JSONObject()
+                .put("package_name", rule.packageName.trim())
+                .put("custom_app_name", rule.customAppName.trim())
+            rule.customDescription
+                ?.takeIf { it.isNotBlank() }
+                ?.let { item.put("custom_description", it.trim()) }
+            array.put(item)
+        }
+        return array
+    }
+
     private fun sanitizeHeartbeat(value: Int): Int {
         return min(50, max(10, value))
     }
@@ -99,6 +143,7 @@ class SettingsStore(context: Context) {
         private const val KEY_REPORT_BATTERY = "report_battery"
         private const val KEY_AUTO_START = "auto_start"
         private const val KEY_RUNNING_ENABLED = "running_enabled"
+        private const val KEY_CUSTOM_RULES = "custom_rules"
         private const val KEY_LOGS = "logs"
         private const val MAX_LOG_ITEMS = 240
         private val LOG_TIME_FORMAT = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")

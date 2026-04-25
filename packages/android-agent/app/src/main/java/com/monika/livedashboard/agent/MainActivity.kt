@@ -92,6 +92,10 @@ private fun AgentScreen(settingsStore: SettingsStore) {
     var autoStartOnBoot by rememberSaveable { mutableStateOf(initial.autoStartOnBoot) }
     var tokenVisible by rememberSaveable { mutableStateOf(false) }
     var runningEnabled by rememberSaveable { mutableStateOf(initial.isRunningEnabled) }
+    var customRules by remember { mutableStateOf(initial.customRules) }
+    var customRulePackage by rememberSaveable { mutableStateOf("") }
+    var customRuleName by rememberSaveable { mutableStateOf("") }
+    var customRuleDescription by rememberSaveable { mutableStateOf("") }
     var statusText by rememberSaveable { mutableStateOf("空闲") }
     var logs by remember { mutableStateOf(settingsStore.loadLogs(80)) }
 
@@ -206,6 +210,90 @@ private fun AgentScreen(settingsStore: SettingsStore) {
         }
 
         HorizontalDivider()
+        Text("应用识别与自定义文案", style = MaterialTheme.typography.titleMedium)
+
+        OutlinedTextField(
+            value = customRulePackage,
+            onValueChange = { customRulePackage = it.trim() },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("应用包名") },
+            singleLine = true,
+            placeholder = { Text("如: com.example.app") }
+        )
+
+        OutlinedTextField(
+            value = customRuleName,
+            onValueChange = { customRuleName = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("自定义应用名") },
+            singleLine = true,
+            placeholder = { Text("如: 我的学习应用") }
+        )
+
+        OutlinedTextField(
+            value = customRuleDescription,
+            onValueChange = { customRuleDescription = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("自定义文案（可选）") },
+            singleLine = true,
+            placeholder = { Text("如: 正在专注刷题喵~") }
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                val packageName = customRulePackage.trim()
+                val customName = customRuleName.trim()
+                if (packageName.isBlank() || customName.isBlank()) {
+                    statusText = "包名和自定义应用名不能为空。"
+                    return@Button
+                }
+
+                val normalized = AppCustomRule(
+                    packageName = packageName,
+                    customAppName = customName,
+                    customDescription = customRuleDescription.trim().ifBlank { null },
+                )
+
+                customRules = customRules
+                    .filterNot { it.packageName.equals(packageName, ignoreCase = true) }
+                    .plus(normalized)
+                customRulePackage = ""
+                customRuleName = ""
+                customRuleDescription = ""
+                statusText = "自定义规则已添加（记得点保存设置）。"
+            }) {
+                Text("添加 / 更新规则")
+            }
+        }
+
+        if (customRules.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                customRules.forEach { rule ->
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text("包名: ${rule.packageName}", style = MaterialTheme.typography.bodySmall)
+                            Text("应用名: ${rule.customAppName}", style = MaterialTheme.typography.bodyMedium)
+                            rule.customDescription?.let {
+                                Text("文案: $it", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Button(
+                                onClick = {
+                                    customRules = customRules.filterNot {
+                                        it.packageName.equals(rule.packageName, ignoreCase = true)
+                                    }
+                                    statusText = "已删除规则（记得点保存设置）。"
+                                },
+                                modifier = Modifier.padding(top = 6.dp)
+                            ) {
+                                Text("删除规则")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider()
         Text("权限与系统设置", style = MaterialTheme.typography.titleMedium)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -270,7 +358,8 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                             reportActivity = reportActivity,
                             reportBattery = reportBattery,
                             autoStartOnBoot = autoStartOnBoot,
-                            isRunningEnabled = runningEnabled
+                            isRunningEnabled = runningEnabled,
+                            customRules = customRules,
                         )
                     )
                     statusText = "设置已保存。"
@@ -320,7 +409,8 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                             reportActivity = reportActivity,
                             reportBattery = reportBattery,
                             autoStartOnBoot = autoStartOnBoot,
-                            isRunningEnabled = true
+                            isRunningEnabled = true,
+                            customRules = customRules,
                         )
                     )
                     runningEnabled = true

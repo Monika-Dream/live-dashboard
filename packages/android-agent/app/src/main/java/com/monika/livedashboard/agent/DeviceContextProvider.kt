@@ -4,17 +4,26 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import android.content.ComponentName
 
 object DeviceContextProvider {
-    fun readExtras(context: Context): DeviceExtras {
+    fun readExtras(
+        context: Context,
+        customAppName: String? = null,
+        customDescription: String? = null,
+    ): DeviceExtras {
         return DeviceExtras(
             batteryPercent = readBatteryPercent(context),
             batteryCharging = readBatteryCharging(context),
             networkType = readNetworkType(context),
-            music = readMusic(context)
+            music = readMusic(context),
+            customAppName = customAppName,
+            customDescription = customDescription,
         )
     }
 
@@ -30,11 +39,44 @@ object DeviceContextProvider {
             return fromNotification
         }
 
+        val fromMediaSession = readFromMediaSessions(context)
+        if (fromMediaSession != null) {
+            return fromMediaSession
+        }
+
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val isMusicActive = runCatching { audioManager.isMusicActive }.getOrDefault(false)
         if (!isMusicActive) return null
 
         return MusicInfo(title = "音乐播放中")
+    }
+
+    private fun readFromMediaSessions(context: Context): MusicInfo? {
+        val manager = context.getSystemService(MediaSessionManager::class.java) ?: return null
+        val componentName = ComponentName(context, MusicNotificationListenerService::class.java)
+        val sessions = runCatching { manager.getActiveSessions(componentName) }.getOrElse { return null }
+
+        val active = sessions.firstOrNull { session -> isSessionPlaying(session) } ?: return null
+        val metadata = active.metadata ?: return null
+
+        val title = metadata.getString(android.media.MediaMetadata.METADATA_KEY_TITLE)?.trim().orEmpty()
+        if (title.isBlank()) return null
+
+        val artist = metadata.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)?.trim()
+            ?.ifBlank { null }
+        val appName = resolveAppName(context, active.packageName)
+
+        return MusicInfo(
+            title = title,
+            artist = artist,
+            app = appName,
+        )
+    }
+
+    private fun isSessionPlaying(session: MediaController): Boolean {
+        val state = session.playbackState?.state ?: return false
+        return state == android.media.session.PlaybackState.STATE_PLAYING ||
+            state == android.media.session.PlaybackState.STATE_BUFFERING
     }
 
     private fun resolveAppName(context: Context, packageName: String): String {

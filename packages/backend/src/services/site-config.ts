@@ -1,3 +1,5 @@
+import { getExternalDashboards } from "../db";
+
 export interface SiteConfig {
   displayName: string;
   siteTitle: string;
@@ -103,12 +105,45 @@ function toDashboardProfile(value: unknown): DashboardProfile | undefined {
   return { id, name, url, description };
 }
 
+export function normalizeDashboardProfileInput(value: unknown): DashboardProfile | null {
+  return toDashboardProfile(value) ?? null;
+}
+
+function mergeDashboards(
+  primary: DashboardProfile[],
+  secondary: DashboardProfile[],
+): DashboardProfile[] {
+  const uniqueDashboards = new Map<string, DashboardProfile>();
+  for (const dashboard of primary) {
+    if (!uniqueDashboards.has(dashboard.id)) {
+      uniqueDashboards.set(dashboard.id, dashboard);
+    }
+  }
+  for (const dashboard of secondary) {
+    if (!uniqueDashboards.has(dashboard.id)) {
+      uniqueDashboards.set(dashboard.id, dashboard);
+    }
+  }
+  return Array.from(uniqueDashboards.values());
+}
+
 function getDashboards(): DashboardProfile[] {
   const raw = nonEmpty(process.env.EXTERNAL_DASHBOARDS);
-  if (!raw) return DEFAULT_DASHBOARDS;
+  const fromDb = getExternalDashboards().map((record) => ({
+    id: record.id,
+    name: record.name,
+    url: record.url,
+    description: record.description,
+  }));
+
+  if (!raw) {
+    return fromDb.length > 0 ? fromDb : DEFAULT_DASHBOARDS;
+  }
 
   const parsed = parseDashboardList(raw);
-  if (parsed.length === 0) return DEFAULT_DASHBOARDS;
+  if (parsed.length === 0) {
+    return fromDb.length > 0 ? fromDb : DEFAULT_DASHBOARDS;
+  }
 
   const uniqueDashboards = new Map<string, DashboardProfile>();
   for (const entry of parsed) {
@@ -119,7 +154,12 @@ function getDashboards(): DashboardProfile[] {
     }
   }
 
-  return uniqueDashboards.size > 0 ? Array.from(uniqueDashboards.values()) : DEFAULT_DASHBOARDS;
+  const fromEnv = uniqueDashboards.size > 0
+    ? Array.from(uniqueDashboards.values())
+    : DEFAULT_DASHBOARDS;
+
+  const merged = mergeDashboards(fromDb, fromEnv);
+  return merged.length > 0 ? merged : DEFAULT_DASHBOARDS;
 }
 export function getSiteConfig(): SiteConfig {
   const displayName = nonEmpty(process.env.DISPLAY_NAME) ?? DEFAULT_DISPLAY_NAME;

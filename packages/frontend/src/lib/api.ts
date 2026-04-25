@@ -14,6 +14,13 @@ export interface DashboardRequestOptions {
   dashboardId?: string;
 }
 
+export interface DashboardMutationPayload {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+}
+
 function normalizeBaseUrl(baseUrl?: string): string {
   const target = (baseUrl ?? API_BASE).trim();
   return target.replace(/\/$/, "");
@@ -89,6 +96,8 @@ export interface DeviceState {
   extra?: {
     battery_percent?: number;
     battery_charging?: boolean;
+    custom_app_name?: string;
+    custom_description?: string;
     music?: {
       title?: string;
       artist?: string;
@@ -258,4 +267,47 @@ export async function fetchHealthData(
   if (deviceId) params.set("device_id", deviceId);
   const url = withQuery(buildApiUrl("/api/health-data", options), params);
   return fetchJsonWithTimeout<HealthDataResponse>(url, signal);
+}
+
+function buildAdminHeaders(adminToken: string): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${adminToken.trim()}`,
+  };
+}
+
+function parseDashboardsResponse(data: unknown): DashboardProfile[] {
+  if (!data || typeof data !== "object") return [];
+  const raw = (data as { dashboards?: unknown }).dashboards;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item: unknown) => normalizeDashboardProfile(item))
+    .filter((item): item is DashboardProfile => !!item);
+}
+
+export async function createDashboard(
+  payload: DashboardMutationPayload,
+  adminToken: string,
+): Promise<DashboardProfile[]> {
+  const res = await fetch(buildApiUrl("/api/config/dashboards"), {
+    method: "POST",
+    headers: buildAdminHeaders(adminToken),
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return parseDashboardsResponse(await res.json());
+}
+
+export async function removeDashboard(id: string, adminToken: string): Promise<DashboardProfile[]> {
+  const res = await fetch(buildApiUrl("/api/config/dashboards"), {
+    method: "DELETE",
+    headers: buildAdminHeaders(adminToken),
+    body: JSON.stringify({ id }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return parseDashboardsResponse(await res.json());
 }
