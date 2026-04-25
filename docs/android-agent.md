@@ -1,53 +1,53 @@
-# Android Agent (Consent First)
+# Android Agent（先同意，后上报）
 
-This Android app is a non-root client for Live Dashboard.
-It reports selected device activity only after explicit user consent.
+这个 Android 应用是 Live Dashboard 的非 root 客户端。
+只有在用户明确同意后，才会上报所选设备的活动信息。
 
-## What it can report
+## 可上报内容
 
-- Current foreground app package name and app name
-- Battery percentage and charging state (optional)
-- Network type as contextual metadata
+- 当前前台应用的包名和应用名
+- 电量百分比与充电状态（可选）
+- 网络类型（作为上下文元数据）
 
-## What it does not do
+## 不会做的事情
 
-- No root required
-- No key logging
-- No message/content extraction from other apps
-- No hidden startup without user-configured opt-in
+- 不要求 root 权限
+- 不做按键记录
+- 不提取其他应用的消息或内容
+- 不会在未启用的情况下偷偷自启动
 
-## Required permissions
+## 需要的权限
 
-- Usage access (`PACKAGE_USAGE_STATS`) for foreground app detection
-- Foreground service for continuous heartbeat upload
-- Internet/network state for API upload
-- Notification permission on Android 13+
+- 使用情况访问权限（PACKAGE_USAGE_STATS），用于检测前台应用
+- 前台服务权限，用于持续心跳上报
+- 网络权限，用于调用 API 上报
+- Android 13 及以上的通知权限
 
-## Backend endpoints used
+## 使用到的后端接口
 
-- `POST /api/consent`
-- `POST /api/report`
+- POST /api/consent
+- POST /api/report
 
-The app is compatible with consent enforcement mode:
+该应用兼容强制同意模式：
 
-- If server sets `REQUIRE_EXPLICIT_CONSENT=true`, consent is uploaded before reporting.
+- 如果服务端设置 REQUIRE_EXPLICIT_CONSENT=true，会先上传同意状态，再上报活动数据。
 
-## Local build
+## 本地构建
 
-Open this folder in Android Studio:
+在 Android Studio 中打开以下目录：
 
-- `packages/android-agent`
+- packages/android-agent
 
-Then run:
+然后执行：
 
-1. Sync Gradle project.
-2. Build release APK from `app` module.
-3. Output is generated under:
-   - `app/build/outputs/apk/release/app-release.apk`
+1. 同步 Gradle 项目。
+2. 在 app 模块构建 release APK。
+3. 输出路径为：
+   - app/build/outputs/apk/release/app-release.apk
 
-## Runtime setup
+## 运行配置
 
-1. Fill server URL and token.
-2. Grant usage access.
-3. Confirm consent checkbox.
-4. Save settings and start tracking.
+1. 填写服务端 URL 和 token。
+2. 授予使用情况访问权限。
+3. 勾选并确认同意项。
+4. 保存设置并启动追踪。
