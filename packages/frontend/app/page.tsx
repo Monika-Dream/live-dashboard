@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useConfig, useConfigLoader, ConfigContext } from "@/hooks/useConfig";
 import type { CurrentResponse, DashboardProfile, DeviceState } from "@/lib/api";
@@ -12,6 +12,8 @@ import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
 import HealthData from "@/components/HealthData";
 import SiteMetadataSync from "@/components/SiteMetadataSync";
+
+const SNAPSHOT_POLL_INTERVAL = 20_000;
 
 interface DashboardOption extends DashboardProfile {
   isPrimary: boolean;
@@ -61,6 +63,7 @@ function HomeInner() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [tab, setTab] = useState<"activity" | "health">("activity");
   const [hasHealthData, setHasHealthData] = useState(false);
+  const snapshotRequestIdRef = useRef(0);
 
   useEffect(() => {
     if (!dashboards.some((dashboard) => dashboard.id === selectedDashboardId)) {
@@ -73,6 +76,10 @@ function HomeInner() {
   }, [dashboards, selectedDashboardId]);
   const activeDashboardId = activeDashboard?.isPrimary ? undefined : activeDashboard?.id;
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard(activeDashboardId);
+  const snapshotTargets = useMemo(() => {
+    const activeId = activeDashboard?.id;
+    return dashboards.filter((dashboard) => dashboard.id !== activeId);
+  }, [activeDashboard?.id, dashboards]);
 
   useEffect(() => {
     setSelectedDeviceId(null);
@@ -80,35 +87,52 @@ function HomeInner() {
   }, [selectedDashboardId]);
 
   useEffect(() => {
+    if (!activeDashboard || !current) return;
+
+    const nextSnapshot = buildDashboardSnapshot(activeDashboard, current);
+    setDashboardSnapshots((prev) => ({
+      ...prev,
+      [activeDashboard.id]: nextSnapshot,
+    }));
+  }, [activeDashboard, current]);
+
+  useEffect(() => {
     let disposed = false;
 
-    const loadSnapshots = async () => {
-      const entries = await Promise.all(
-        dashboards.map(async (dashboard) => {
-          try {
-            const response = await fetchCurrent(
-              undefined,
-              dashboard.isPrimary ? undefined : { dashboardId: dashboard.id },
-            );
-            return [dashboard.id, buildDashboardSnapshot(dashboard, response)] as const;
-          } catch {
-            return [dashboard.id, buildDashboardSnapshot(dashboard, null)] as const;
-          }
-        }),
-      );
+    const loadSnapshots = () => {
+      const requestId = ++snapshotRequestIdRef.current;
 
-      if (!disposed) {
-        setDashboardSnapshots(Object.fromEntries(entries));
+      for (const dashboard of snapshotTargets) {
+        void fetchCurrent(
+          undefined,
+          dashboard.isPrimary ? undefined : { dashboardId: dashboard.id },
+        )
+          .then((response) => {
+            if (disposed || requestId !== snapshotRequestIdRef.current) return;
+            const nextSnapshot = buildDashboardSnapshot(dashboard, response);
+            setDashboardSnapshots((prev) => ({
+              ...prev,
+              [dashboard.id]: nextSnapshot,
+            }));
+          })
+          .catch(() => {
+            if (disposed || requestId !== snapshotRequestIdRef.current) return;
+            const nextSnapshot = buildDashboardSnapshot(dashboard, null);
+            setDashboardSnapshots((prev) => ({
+              ...prev,
+              [dashboard.id]: nextSnapshot,
+            }));
+          });
       }
     };
 
     loadSnapshots();
-    const timer = window.setInterval(loadSnapshots, 10_000);
+    const timer = window.setInterval(loadSnapshots, SNAPSHOT_POLL_INTERVAL);
     return () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [dashboards]);
+  }, [snapshotTargets]);
 
   useEffect(() => {
     if (!hasHealthData && tab === "health") setTab("activity");
@@ -344,7 +368,7 @@ function HomeInner() {
 
       <footer className="mt-12 pt-4 separator-dashed text-center">
         <p className="text-[10px] text-[var(--color-text-muted)]">
-          {displayName} Now &middot; 已接入 {resolvedSnapshots.length} 个面板 &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
+          {displayName} Now &middot; 已接入 {resolvedSnapshots.length} 个面板 &middot; 状态 10 秒刷新 / 时间线 30 秒刷新 &middot; (◕ᴗ◕)
         </p>
       </footer>
     </>

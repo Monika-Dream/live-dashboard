@@ -61,7 +61,7 @@ export async function handleReport(req: Request): Promise<Response> {
   }
 
   // Resolve app name
-  const appName = resolveAppName(appId, device.platform);
+  const appName = resolveAppName(appId, device.platform, windowTitle);
 
   // Privacy: generate display_title (safe for public), then discard raw window_title
   const displayTitle = processDisplayTitle(appName, windowTitle);

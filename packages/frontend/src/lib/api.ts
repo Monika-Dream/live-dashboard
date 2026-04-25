@@ -1,4 +1,6 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const API_TIMEOUT_MS = 6000;
+const CONFIG_TIMEOUT_MS = 3000;
 
 export interface DashboardProfile {
   id: string;
@@ -35,6 +37,44 @@ function buildApiUrl(path: string, options?: DashboardRequestOptions): string {
 function withQuery(url: string, params: URLSearchParams): string {
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}${params.toString()}`;
+}
+
+async function fetchJsonWithTimeout<T>(
+  url: string,
+  signal?: AbortSignal,
+  timeoutMs: number = API_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  if (signal?.aborted) {
+    clearTimeout(timeoutId);
+    throw new DOMException("Aborted", "AbortError");
+  }
+
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json() as Promise<T>;
+  } catch (error) {
+    if (timedOut) {
+      throw new Error("Request timeout");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 export interface DeviceState {
@@ -96,9 +136,7 @@ export async function fetchCurrent(
   signal?: AbortSignal,
   options?: DashboardRequestOptions,
 ): Promise<CurrentResponse> {
-  const res = await fetch(buildApiUrl("/api/current", options), { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return fetchJsonWithTimeout<CurrentResponse>(buildApiUrl("/api/current", options), signal);
 }
 
 export async function fetchTimeline(
@@ -112,9 +150,7 @@ export async function fetchTimeline(
     tz: String(tz),
   });
   const url = withQuery(buildApiUrl("/api/timeline", options), params);
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return fetchJsonWithTimeout<TimelineResponse>(url, signal);
 }
 
 export interface HealthRecord {
@@ -182,18 +218,12 @@ export async function fetchConfig(
   signal?: AbortSignal,
   options?: DashboardRequestOptions,
 ): Promise<SiteConfig> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3000);
-  if (signal?.aborted) {
-    clearTimeout(timeout);
-    return defaultConfig;
-  }
-  const onAbort = () => controller.abort();
-  signal?.addEventListener("abort", onAbort, { once: true });
   try {
-    const res = await fetch(buildApiUrl("/api/config", options), { signal: controller.signal });
-    if (!res.ok) return defaultConfig;
-    const data = await res.json();
+    const data = await fetchJsonWithTimeout<Record<string, unknown>>(
+      buildApiUrl("/api/config", options),
+      signal,
+      CONFIG_TIMEOUT_MS,
+    );
     const favicon = typeof data.siteFavicon === "string" && isValidFaviconUrl(data.siteFavicon)
       ? data.siteFavicon
       : defaultConfig.siteFavicon;
@@ -211,9 +241,6 @@ export async function fetchConfig(
     };
   } catch {
     return defaultConfig;
-  } finally {
-    clearTimeout(timeout);
-    signal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -230,7 +257,5 @@ export async function fetchHealthData(
   });
   if (deviceId) params.set("device_id", deviceId);
   const url = withQuery(buildApiUrl("/api/health-data", options), params);
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return fetchJsonWithTimeout<HealthDataResponse>(url, signal);
 }

@@ -241,19 +241,19 @@ docker run -d --name live-dashboard `
 Invoke-RestMethod http://127.0.0.1:3000/api/current | Select-Object -ExpandProperty devices
 ```
 
-详细部署说明（docker-compose、VPS + Nginx + HTTPS）见 [Wiki - 快速部署](https://github.com/Monika-Dream/live-dashboard/wiki/快速部署)。
+详细部署说明见本文档后面的「文档与配置索引」，已按当前仓库实际结构整理。
 
-## Agent 下载
+## Agent 获取与配置
 
-从 [GitHub Releases](https://github.com/nmb1337/live-dashboard/releases) 下载对应平台的客户端：
+当前仓库以服务端 + Android Agent 源码为主，按下面方式获取：
 
-| 平台 | 下载文件 | 配置指南 |
+| 平台 | 获取方式 | 配置指南 |
 |------|---------|---------|
-| Windows | 右边下载 | [Wiki - Windows Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Windows) |
-| macOS | 右边下载 | [Wiki - macOS Agent](https://github.com/Monika-Dream/live-dash（board/wiki/Agent-配置-macOS) |
-| Android | [live-dashboard-android-agent.apk](https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-android-agent.apk) | [仓库文档 - Android Agent](docs/android-agent.md) |
+| Windows | 使用仓库内一键部署脚本启动服务端并获取 token | [deploy/windows-dockerdesktop-local.ps1](deploy/windows-dockerdesktop-local.ps1) |
+| macOS | 使用仓库内本地启动脚本（包含后端/前端与 Agent 运行流程） | [start.sh](start.sh) |
+| Android | 从源码构建 APK（Android Studio） | [docs/android-agent.md](docs/android-agent.md) / [packages/android-agent](packages/android-agent) |
 
-说明：首次打 Tag 并生成 Release 前，上述 direct download 链接会返回 404。
+说明：如果你后续发布了自己的 Release，可在这里补充对应下载链接。
 
 ## 主题
 
@@ -285,18 +285,26 @@ Invoke-RestMethod http://127.0.0.1:3000/api/current | Select-Object -ExpandPrope
 
 ## 文档
 
-完整文档见 [GitHub Wiki](https://github.com/Monika-Dream/live-dashboard/wiki)：
+### 文档与配置索引（当前仓库）
 
-- [快速部署](https://github.com/Monika-Dream/live-dashboard/wiki/快速部署) — Docker 一键部署
-- [VPS 部署指南](https://github.com/Monika-Dream/live-dashboard/wiki/VPS-部署指南) — Nginx + HTTPS
-- [功能特性](https://github.com/Monika-Dream/live-dashboard/wiki/功能特性) — 完整功能列表
-- [架构与项目结构](https://github.com/Monika-Dream/live-dashboard/wiki/架构与项目结构) — 架构图 + 项目树
-- [隐私分级系统](https://github.com/Monika-Dream/live-dashboard/wiki/隐私分级系统) — SHOW / BROWSER / HIDE
-- [API 参考](https://github.com/Monika-Dream/live-dashboard/wiki/API-参考) — 端点、请求体、响应格式
-- [环境变量](https://github.com/Monika-Dream/live-dashboard/wiki/环境变量) — 配置项一览
-- [安全设计](https://github.com/Monika-Dream/live-dashboard/wiki/安全设计) — 安全特性
-- [自定义](https://github.com/Monika-Dream/live-dashboard/wiki/自定义) — 显示名、元数据、主题色
-- [本地开发](https://github.com/Monika-Dream/live-dashboard/wiki/本地开发) — 从源码构建
+- [README](README.md) — 总览、部署步骤、常见问题
+- [docs/android-agent.md](docs/android-agent.md) — Android Agent 权限、同意机制与打包流程
+- [deploy/windows-dockerdesktop-local.ps1](deploy/windows-dockerdesktop-local.ps1) — Windows 一键初始化 `.env` + 本地 Docker 启动
+- [deploy/nginx/example.conf](deploy/nginx/example.conf) — Nginx 反向代理与 API 限流示例
+- [docker-compose.yml](docker-compose.yml) — 当前仓库默认 Compose 配置（本地构建、外部网络、固定 IP）
+- [docker-compose.example.yml](docker-compose.example.yml) — 预构建镜像示例配置
+- [.env.example](.env.example) — 环境变量模板与默认值
+
+### 当前默认配置摘要
+
+- 默认端口：`3000`
+- 默认显示名：`xuyihong`
+- 默认站点标题：`xuyihong Now`
+- 默认描述：`What is xuyihong doing right now?`
+- 默认图标：`/favicon.ico`
+- 默认数据库路径：`/data/live-dashboard.db`
+- 默认 Compose 网络：外部网络 `your_external_network`，容器固定 IP `172.20.0.80`
+- `EXTERNAL_DASHBOARDS` 必须是合法 JSON 数组；PowerShell 场景建议用 `--env-file .env`
 
 ## 许可证
 
