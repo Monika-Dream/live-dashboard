@@ -2,6 +2,7 @@ package com.monika.livedashboard.agent
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.json.JSONArray
 import kotlin.math.max
 import kotlin.math.min
 
@@ -40,6 +41,50 @@ class SettingsStore(context: Context) {
         prefs.edit().putBoolean(KEY_RUNNING_ENABLED, enabled).apply()
     }
 
+    @Synchronized
+    fun appendLog(message: String) {
+        val normalized = message.replace("\n", " ").trim()
+        if (normalized.isBlank()) return
+
+        val logs = readLogsInternal()
+        val timestamped = "${java.time.LocalDateTime.now().format(LOG_TIME_FORMAT)} $normalized"
+        logs.add(timestamped)
+        while (logs.size > MAX_LOG_ITEMS) {
+            logs.removeAt(0)
+        }
+        writeLogsInternal(logs)
+    }
+
+    @Synchronized
+    fun loadLogs(limit: Int = MAX_LOG_ITEMS): List<String> {
+        val logs = readLogsInternal()
+        if (limit <= 0 || logs.size <= limit) return logs
+        return logs.takeLast(limit)
+    }
+
+    @Synchronized
+    fun clearLogs() {
+        prefs.edit().putString(KEY_LOGS, "[]").apply()
+    }
+
+    private fun readLogsInternal(): MutableList<String> {
+        val raw = prefs.getString(KEY_LOGS, "[]") ?: "[]"
+        return try {
+            val array = JSONArray(raw)
+            MutableList(array.length()) { index ->
+                array.optString(index).orEmpty()
+            }.filter { it.isNotBlank() }.toMutableList()
+        } catch (_: Exception) {
+            mutableListOf()
+        }
+    }
+
+    private fun writeLogsInternal(logs: List<String>) {
+        val jsonArray = JSONArray()
+        logs.forEach { jsonArray.put(it) }
+        prefs.edit().putString(KEY_LOGS, jsonArray.toString()).apply()
+    }
+
     private fun sanitizeHeartbeat(value: Int): Int {
         return min(50, max(10, value))
     }
@@ -54,5 +99,8 @@ class SettingsStore(context: Context) {
         private const val KEY_REPORT_BATTERY = "report_battery"
         private const val KEY_AUTO_START = "auto_start"
         private const val KEY_RUNNING_ENABLED = "running_enabled"
+        private const val KEY_LOGS = "logs"
+        private const val MAX_LOG_ITEMS = 240
+        private val LOG_TIME_FORMAT = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
     }
 }

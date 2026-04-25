@@ -20,5 +20,12 @@ data class ForegroundAppInfo(
 data class DeviceExtras(
     val batteryPercent: Int?,
     val batteryCharging: Boolean?,
-    val networkType: String
+    val networkType: String,
+    val music: MusicInfo? = null
+)
+
+data class MusicInfo(
+    val title: String,
+    val artist: String? = null,
+    val app: String? = null
 )

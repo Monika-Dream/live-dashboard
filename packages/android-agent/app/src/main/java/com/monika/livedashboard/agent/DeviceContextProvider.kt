@@ -3,6 +3,7 @@ package com.monika.livedashboard.agent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
@@ -12,8 +13,37 @@ object DeviceContextProvider {
         return DeviceExtras(
             batteryPercent = readBatteryPercent(context),
             batteryCharging = readBatteryCharging(context),
-            networkType = readNetworkType(context)
+            networkType = readNetworkType(context),
+            music = readMusic(context)
         )
+    }
+
+    private fun readMusic(context: Context): MusicInfo? {
+        val fromNotification = MusicPlaybackStore.current()?.let { music ->
+            val resolvedApp = music.app
+                ?.takeIf { it.contains('.') }
+                ?.let { packageName -> resolveAppName(context, packageName) }
+                ?: music.app
+            music.copy(app = resolvedApp)
+        }
+        if (fromNotification != null) {
+            return fromNotification
+        }
+
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val isMusicActive = runCatching { audioManager.isMusicActive }.getOrDefault(false)
+        if (!isMusicActive) return null
+
+        return MusicInfo(title = "音乐播放中")
+    }
+
+    private fun resolveAppName(context: Context, packageName: String): String {
+        return try {
+            val appInfo = context.packageManager.getApplicationInfo(packageName, 0)
+            context.packageManager.getApplicationLabel(appInfo).toString()
+        } catch (_: Exception) {
+            packageName
+        }
     }
 
     private fun readBatteryPercent(context: Context): Int? {

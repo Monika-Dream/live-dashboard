@@ -1,23 +1,30 @@
 package com.monika.livedashboard.agent
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -84,9 +91,17 @@ private fun AgentScreen(settingsStore: SettingsStore) {
     var reportBattery by rememberSaveable { mutableStateOf(initial.reportBattery) }
     var autoStartOnBoot by rememberSaveable { mutableStateOf(initial.autoStartOnBoot) }
     var tokenVisible by rememberSaveable { mutableStateOf(false) }
+    var runningEnabled by rememberSaveable { mutableStateOf(initial.isRunningEnabled) }
     var statusText by rememberSaveable { mutableStateOf("空闲") }
+    var logs by remember { mutableStateOf(settingsStore.loadLogs(80)) }
+
+    fun refreshLogs() {
+        logs = settingsStore.loadLogs(80)
+    }
 
     val usagePermissionGranted = UsageTracker.hasUsageStatsPermission(context)
+    val notificationAccessGranted = hasNotificationAccess(context)
+    val batteryOptimizationIgnored = isIgnoringBatteryOptimizations(context)
 
     Column(
         modifier = Modifier
@@ -97,11 +112,28 @@ private fun AgentScreen(settingsStore: SettingsStore) {
     ) {
         Text("实时看板助手", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "上报设备活动前需要用户授权，无需 root。",
+            "更稳定地持续上报设备活动，并支持显示听歌状态。",
             style = MaterialTheme.typography.bodyMedium
         )
 
         HorizontalDivider()
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("运行状态", style = MaterialTheme.typography.titleMedium)
+                Text(if (runningEnabled) "监听状态：运行中" else "监听状态：未运行")
+                Text(if (usagePermissionGranted) "使用情况访问：已授权" else "使用情况访问：未授权")
+                Text(if (notificationAccessGranted) "通知读取权限（音乐识别）：已授权" else "通知读取权限（音乐识别）：未授权")
+                Text(if (batteryOptimizationIgnored) "电池优化：已加入白名单" else "电池优化：未加入白名单")
+                Text("状态：$statusText")
+            }
+        }
+
+        HorizontalDivider()
+        Text("基础配置", style = MaterialTheme.typography.titleMedium)
 
         OutlinedTextField(
             value = serverUrl,
@@ -173,17 +205,43 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             )
         }
 
-        Text(
-            if (usagePermissionGranted) "使用情况访问权限：已授权"
-            else "使用情况访问权限：未授权",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        HorizontalDivider()
+        Text("权限与系统设置", style = MaterialTheme.typography.titleMedium)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { UsageTracker.openUsageAccessSettings(context) }) {
-                Text("打开使用情况访问权限")
+            Button(onClick = {
+                UsageTracker.openUsageAccessSettings(context)
+                statusText = "已打开使用情况访问权限页。"
+            }) {
+                Text("使用情况权限")
+            }
+
+            Button(onClick = {
+                openNotificationAccessSettings(context)
+                statusText = "已打开通知读取权限页。"
+            }) {
+                Text("通知读取权限")
             }
         }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                requestIgnoreBatteryOptimizations(context)
+                statusText = "已打开电池优化设置页。"
+            }) {
+                Text("电池白名单")
+            }
+
+            Button(onClick = {
+                refreshLogs()
+                statusText = "状态已刷新。"
+            }) {
+                Text("刷新状态")
+            }
+        }
+
+        HorizontalDivider()
+        Text("操作", style = MaterialTheme.typography.titleMedium)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -192,10 +250,14 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                     val normalizedServer = serverUrl.trim().trimEnd('/')
                     if (!isServerUrlAllowed(normalizedServer)) {
                         statusText = "服务器地址必须使用 HTTPS（localhost 除外）。"
+                        settingsStore.appendLog("保存设置失败：服务器地址不符合要求")
+                        refreshLogs()
                         return@Button
                     }
                     if (token.trim().isBlank()) {
                         statusText = "必须填写 Token 密钥。"
+                        settingsStore.appendLog("保存设置失败：未填写 Token")
+                        refreshLogs()
                         return@Button
                     }
 
@@ -208,10 +270,12 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                             reportActivity = reportActivity,
                             reportBattery = reportBattery,
                             autoStartOnBoot = autoStartOnBoot,
-                            isRunningEnabled = settingsStore.load().isRunningEnabled
+                            isRunningEnabled = runningEnabled
                         )
                     )
                     statusText = "设置已保存。"
+                    settingsStore.appendLog("设置已保存")
+                    refreshLogs()
                 }
             ) {
                 Text("保存设置")
@@ -221,14 +285,20 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                 onClick = {
                     if (!consentGiven) {
                         statusText = "启动前必须先同意授权。"
+                        settingsStore.appendLog("启动失败：未勾选同意")
+                        refreshLogs()
                         return@Button
                     }
                     if (!reportActivity) {
                         statusText = "请先开启活动上报。"
+                        settingsStore.appendLog("启动失败：活动上报未开启")
+                        refreshLogs()
                         return@Button
                     }
                     if (!UsageTracker.hasUsageStatsPermission(context)) {
                         statusText = "请先授予使用情况访问权限。"
+                        settingsStore.appendLog("启动失败：未授予使用情况访问权限")
+                        refreshLogs()
                         return@Button
                     }
 
@@ -236,6 +306,8 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                     val normalizedServer = serverUrl.trim().trimEnd('/')
                     if (!isServerUrlAllowed(normalizedServer) || token.trim().isBlank()) {
                         statusText = "请填写有效的服务器地址和 Token 密钥。"
+                        settingsStore.appendLog("启动失败：服务器地址或 Token 无效")
+                        refreshLogs()
                         return@Button
                     }
 
@@ -251,12 +323,15 @@ private fun AgentScreen(settingsStore: SettingsStore) {
                             isRunningEnabled = true
                         )
                     )
+                    runningEnabled = true
 
                     val serviceIntent = Intent(context, TrackingService::class.java).apply {
                         action = TrackingService.ACTION_START
                     }
                     ContextCompat.startForegroundService(context, serviceIntent)
                     statusText = "监听已启动。"
+                    settingsStore.appendLog("监听已启动")
+                    refreshLogs()
                 }
             ) {
                 Text("开始监听")
@@ -265,11 +340,14 @@ private fun AgentScreen(settingsStore: SettingsStore) {
             Button(
                 onClick = {
                     settingsStore.setRunningEnabled(false)
+                    runningEnabled = false
                     val serviceIntent = Intent(context, TrackingService::class.java).apply {
                         action = TrackingService.ACTION_STOP
                     }
                     context.startService(serviceIntent)
                     statusText = "监听已停止。"
+                    settingsStore.appendLog("监听已停止")
+                    refreshLogs()
                 }
             ) {
                 Text("停止监听")
@@ -277,7 +355,45 @@ private fun AgentScreen(settingsStore: SettingsStore) {
         }
 
         HorizontalDivider()
-        Text("状态：$statusText")
+        Text("运行日志", style = MaterialTheme.typography.titleMedium)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                refreshLogs()
+                statusText = "日志已刷新。"
+            }) {
+                Text("刷新日志")
+            }
+            Button(onClick = {
+                settingsStore.clearLogs()
+                refreshLogs()
+                statusText = "日志已清空。"
+            }) {
+                Text("清空日志")
+            }
+        }
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 120.dp)
+                    .padding(12.dp)
+            ) {
+                if (logs.isEmpty()) {
+                    Text("暂无日志")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        logs.asReversed().take(60).forEach { line ->
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -292,5 +408,42 @@ private fun isServerUrlAllowed(value: String): Boolean {
         scheme == "https" || localhost
     } catch (_: Exception) {
         false
+    }
+}
+
+private fun hasNotificationAccess(context: android.content.Context): Boolean {
+    val enabled = Settings.Secure.getString(
+        context.contentResolver,
+        "enabled_notification_listeners"
+    ) ?: return false
+
+    return enabled.split(':').any { flattened ->
+        ComponentName.unflattenFromString(flattened)?.packageName == context.packageName
+    }
+}
+
+private fun openNotificationAccessSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
+}
+
+private fun isIgnoringBatteryOptimizations(context: android.content.Context): Boolean {
+    val powerManager = context.getSystemService(PowerManager::class.java)
+    return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun requestIgnoreBatteryOptimizations(context: android.content.Context) {
+    val directIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${context.packageName}")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    runCatching {
+        context.startActivity(directIntent)
+    }.getOrElse {
+        val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(fallbackIntent)
     }
 }
