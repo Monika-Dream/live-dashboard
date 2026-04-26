@@ -1,8 +1,7 @@
 {
   "version": 3,
   "targets": {
-    "net10.0-windows7.0": {},
-    "net10.0-windows7.0/win-x64": {}
+    "net10.0-windows7.0": {}
   },
   "libraries": {},
   "projectFileDependencyGroups": {
@@ -357,11 +356,6 @@
           "System.Xml.XPath": "(,4.3.32767]",
           "System.Xml.XPath.XDocument": "(,5.0.32767]"
         }
-      }
-    },
-    "runtimes": {
-      "win-x64": {
-        "#import": []
       }
     }
   }
