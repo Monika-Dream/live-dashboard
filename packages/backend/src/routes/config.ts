@@ -7,6 +7,12 @@ export function handleConfig(): Response {
   return Response.json(getSiteConfig());
 }
 
+export function handleAdminVerify(req: Request): Response {
+  const unauthorized = ensureAdminAuthorized(req);
+  if (unauthorized) return unauthorized;
+  return Response.json({ ok: true });
+}
+
 export async function handleDashboardCreate(req: Request): Promise<Response> {
   const unauthorized = ensureAdminAuthorized(req);
   if (unauthorized) return unauthorized;

@@ -312,6 +312,16 @@ export async function createDashboard(
   return parseDashboardsResponse(await res.json());
 }
 
+export async function verifyAdminToken(adminToken: string): Promise<void> {
+  const res = await fetch(buildApiUrl("/api/config/verify"), {
+    method: "POST",
+    headers: buildAdminHeaders(adminToken),
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error(await parseApiError(res));
+}
+
 export async function removeDashboard(id: string, adminToken: string): Promise<DashboardProfile[]> {
   const res = await fetch(buildApiUrl("/api/config/dashboards"), {
     method: "DELETE",

@@ -8,7 +8,7 @@ import { handleHealth } from "./routes/health";
 import { handleHealthData, handleHealthDataQuery } from "./routes/health-data";
 import { handleHealthWebhook } from "./routes/health-webhook";
 import { handleConsentGet, handleConsentPost } from "./routes/consent";
-import { handleConfig, handleDashboardCreate, handleDashboardDelete } from "./routes/config";
+import { handleAdminVerify, handleConfig, handleDashboardCreate, handleDashboardDelete } from "./routes/config";
 import { handleProxy } from "./routes/proxy";
 import { injectSiteConfig } from "./services/site-config";
 import { cleanupUnconfiguredDeviceData } from "./db";
@@ -105,6 +105,8 @@ const server = Bun.serve({
         response = await handleConsentPost(req);
       } else if (pathname === "/api/config" && req.method === "GET") {
         response = handleConfig();
+      } else if (pathname === "/api/config/verify" && req.method === "POST") {
+        response = handleAdminVerify(req);
       } else if (pathname === "/api/config/dashboards" && req.method === "POST") {
         response = await handleDashboardCreate(req);
       } else if (pathname === "/api/config/dashboards" && req.method === "DELETE") {

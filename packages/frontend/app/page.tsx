@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useConfig, useConfigLoader, ConfigContext } from "@/hooks/useConfig";
 import type { CurrentResponse, DashboardProfile, DeviceState } from "@/lib/api";
-import { createDashboard, fetchConfig, fetchCurrent, fetchHealthData, removeDashboard } from "@/lib/api";
+import { createDashboard, fetchConfig, fetchCurrent, fetchHealthData, removeDashboard, verifyAdminToken } from "@/lib/api";
 import Header from "@/components/Header";
 import CurrentStatus from "@/components/CurrentStatus";
 import DeviceCard from "@/components/DeviceCard";
@@ -539,21 +539,40 @@ function DashboardAdminPanel({
   const [expanded, setExpanded] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockStatus, setUnlockStatus] = useState<string | null>(null);
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
 
-  const handleUnlock = () => {
+  const handleUnlock = async () => {
     const password = passwordInput.trim();
-    if (!password) return;
-    onAdminTokenChange(password);
-    setUnlocked(true);
+    if (!password) {
+      setUnlockStatus("请先填写管理密码");
+      return;
+    }
+
+    setUnlocking(true);
+    setUnlockStatus("正在验证管理密码...");
+    try {
+      await verifyAdminToken(password);
+      onAdminTokenChange(password);
+      setUnlocked(true);
+      setUnlockStatus("管理密码验证成功");
+    } catch (error) {
+      onAdminTokenChange("");
+      const message = error instanceof Error ? error.message : "验证失败";
+      setUnlockStatus(`解锁失败：${message}`);
+    } finally {
+      setUnlocking(false);
+    }
   };
 
   const handleLock = () => {
     setUnlocked(false);
     setPasswordInput("");
+    setUnlockStatus(null);
     onAdminTokenChange("");
   };
 
@@ -590,21 +609,33 @@ function DashboardAdminPanel({
                   type="password"
                   value={passwordInput}
                   onChange={(event) => setPasswordInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !unlocking) {
+                      event.preventDefault();
+                      void handleUnlock();
+                    }
+                  }}
                   placeholder="先输入管理密码（ADMIN_PASSWORD / ADMIN_TOKEN）"
                   autoComplete="new-password"
                   className="panel-chip w-full text-xs px-3 py-2"
                 />
                 <button
                   type="button"
-                  onClick={handleUnlock}
+                  onClick={() => {
+                    void handleUnlock();
+                  }}
+                  disabled={unlocking}
                   className="pill-btn text-xs px-3 py-1"
                 >
-                  解锁管理
+                  {unlocking ? "验证中..." : "解锁管理"}
                 </button>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] mt-2">
                 解锁后才会显示添加/更新/删除按钮。
               </p>
+              {unlockStatus && (
+                <p className="text-xs text-[var(--color-text-muted)] mt-2">{unlockStatus}</p>
+              )}
             </>
           ) : (
             <>
