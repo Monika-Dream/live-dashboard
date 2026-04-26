@@ -71,7 +71,7 @@ internal sealed class AgentApplicationContext : ApplicationContext
         }
 
         _settingsForm = new SettingsForm(_config.Clone());
-        _settingsForm.ConfigSaved += OnConfigSaved;
+        _settingsForm.SetHandlers(HandleSaveRequested, HandleTestReportRequestedAsync);
         _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         _settingsForm.Show();
         _settingsForm.Activate();
@@ -88,17 +88,32 @@ internal sealed class AgentApplicationContext : ApplicationContext
         });
     }
 
-    private void OnConfigSaved(AgentConfig config)
+    private string? HandleSaveRequested(AgentConfig config)
     {
-        _config = config.Clone();
-        ConfigStore.Save(_configPath, _config);
-        _reporter.UpdateConfig(_config);
+        try
+        {
+            _config = config.Clone();
+            ConfigStore.Save(_configPath, _config);
+            _reporter.UpdateConfig(_config);
+            _reporter.RequestImmediateReport();
 
-        _notifyIcon.ShowBalloonTip(
-            2000,
-            "Live Dashboard",
-            "设置已保存并立即生效。",
-            ToolTipIcon.Info);
+            _notifyIcon.ShowBalloonTip(
+                2000,
+                "Live Dashboard",
+                "设置已保存并立即生效。",
+                ToolTipIcon.Info);
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return $"保存失败: {ex.Message}";
+        }
+    }
+
+    private async Task<string?> HandleTestReportRequestedAsync(AgentConfig config)
+    {
+        return await _reporter.TestReportAsync(config);
     }
 
     protected override void ExitThreadCore()
@@ -120,17 +135,30 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown _afkThresholdNumeric;
     private readonly CheckBox _enableLogCheckBox;
     private readonly DataGridView _customRulesGrid;
+    private readonly Button _saveButton;
+    private readonly Button _cancelButton;
+    private readonly Button _testButton;
+    private Func<AgentConfig, string?>? _saveRequested;
+    private Func<AgentConfig, Task<string?>>? _testReportRequestedAsync;
 
-    public event Action<AgentConfig>? ConfigSaved;
+    public void SetHandlers(
+        Func<AgentConfig, string?>? saveRequested,
+        Func<AgentConfig, Task<string?>>? testReportRequestedAsync)
+    {
+        _saveRequested = saveRequested;
+        _testReportRequestedAsync = testReportRequestedAsync;
+    }
 
     public SettingsForm(AgentConfig config)
     {
         Text = "Live Dashboard - 设置";
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
         MinimizeBox = false;
-        ClientSize = new Size(600, 560);
+        ClientSize = new Size(700, 620);
+        MinimumSize = new Size(700, 620);
+        AutoScroll = true;
         Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
 
         var layoutPanel = new Panel
@@ -141,7 +169,7 @@ internal sealed class SettingsForm : Form
         Controls.Add(layoutPanel);
 
         var labelWidth = 120;
-        var inputWidth = 430;
+        var inputWidth = 540;
         var rowHeight = 34;
         var y = 8;
 
@@ -181,9 +209,10 @@ internal sealed class SettingsForm : Form
         {
             Left = 8,
             Top = y,
-            Width = 552,
+            Width = 660,
             Height = 270,
             Text = "自定义应用名称和文案",
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
         };
         layoutPanel.Controls.Add(group);
 
@@ -191,7 +220,7 @@ internal sealed class SettingsForm : Form
         {
             Left = 12,
             Top = 28,
-            Width = 526,
+            Width = 634,
             Height = 190,
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
@@ -248,27 +277,44 @@ internal sealed class SettingsForm : Form
         };
         group.Controls.Add(removeRuleButton);
 
-        var saveButton = new Button
+        _saveButton = new Button
         {
-            Left = 350,
-            Top = 520,
-            Width = 100,
+            Left = 450,
+            Top = 560,
+            Width = 120,
             Height = 30,
-            Text = "保存",
+            Text = "确认并保存",
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
         };
-        saveButton.Click += (_, _) => SaveConfig();
-        Controls.Add(saveButton);
+        _saveButton.Click += (_, _) => SaveConfig();
+        Controls.Add(_saveButton);
 
-        var cancelButton = new Button
+        _cancelButton = new Button
         {
-            Left = 460,
-            Top = 520,
+            Left = 580,
+            Top = 560,
             Width = 100,
             Height = 30,
             Text = "取消",
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
         };
-        cancelButton.Click += (_, _) => Close();
-        Controls.Add(cancelButton);
+        _cancelButton.Click += (_, _) => Close();
+        Controls.Add(_cancelButton);
+
+        _testButton = new Button
+        {
+            Left = 320,
+            Top = 560,
+            Width = 120,
+            Height = 30,
+            Text = "测试上报",
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+        };
+        _testButton.Click += async (_, _) => await TestReportAsync();
+        Controls.Add(_testButton);
+
+        AcceptButton = _saveButton;
+        CancelButton = _cancelButton;
 
         BindConfig(config);
     }
@@ -334,19 +380,73 @@ internal sealed class SettingsForm : Form
 
     private void SaveConfig()
     {
+        var config = BuildConfigFromInputs();
+        if (config is null)
+        {
+            return;
+        }
+
+        var normalized = ConfigStore.Normalize(config);
+        var error = _saveRequested?.Invoke(normalized);
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            MessageBox.Show(this, error, "保存失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        MessageBox.Show(this, "设置已保存并开始上报。", "保存成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        Close();
+    }
+
+    private async Task TestReportAsync()
+    {
+        var config = BuildConfigFromInputs();
+        if (config is null)
+        {
+            return;
+        }
+
+        var normalized = ConfigStore.Normalize(config);
+        if (_testReportRequestedAsync is null)
+        {
+            MessageBox.Show(this, "测试上报不可用。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        _testButton.Enabled = false;
+        try
+        {
+            var error = await _testReportRequestedAsync(normalized);
+            if (string.IsNullOrWhiteSpace(error))
+            {
+                MessageBox.Show(this, "测试上报成功，后端已收到数据。", "测试结果", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show(this, error, "测试失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        finally
+        {
+            _testButton.Enabled = true;
+        }
+    }
+
+    private AgentConfig? BuildConfigFromInputs()
+    {
         var serverUrl = _serverUrlTextBox.Text.Trim();
         if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out var uri) ||
             (uri.Scheme != "http" && uri.Scheme != "https"))
         {
             MessageBox.Show(this, "服务器地址必须是 http:// 或 https:// 开头。", "设置校验", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            return null;
         }
 
         var token = _tokenTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(token))
         {
             MessageBox.Show(this, "Token 不能为空。", "设置校验", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            return null;
         }
 
         var reportInterval = (int)_reportIntervalNumeric.Value;
@@ -372,7 +472,7 @@ internal sealed class SettingsForm : Form
             });
         }
 
-        var config = new AgentConfig
+        return new AgentConfig
         {
             ServerUrl = serverUrl,
             Token = token,
@@ -383,9 +483,6 @@ internal sealed class SettingsForm : Form
             UserAgent = "live-dashboard-windows-agent/2.0.0",
             CustomApps = rules,
         };
-
-        ConfigSaved?.Invoke(ConfigStore.Normalize(config));
-        Close();
     }
 }
 
@@ -432,6 +529,87 @@ internal sealed class AgentReporter
             _cts = new CancellationTokenSource();
             _runTask = Task.Run(() => RunAsync(_cts.Token));
         }
+    }
+
+    public void RequestImmediateReport()
+    {
+        _lastSentAt = DateTimeOffset.MinValue;
+    }
+
+    public async Task<string?> TestReportAsync(AgentConfig config)
+    {
+        var normalized = ConfigStore.Normalize(config);
+
+        if (string.IsNullOrWhiteSpace(normalized.Token))
+        {
+            return "Token 为空，请先填写后再测试。";
+        }
+
+        var baseUrl = NormalizeBaseUrl(normalized.ServerUrl);
+        if (baseUrl is null)
+        {
+            return "服务器地址无效，请使用 http:// 或 https:// 地址。";
+        }
+
+        var snapshot = ReadSnapshot(normalized.AfkThresholdSeconds);
+        var rule = FindMatchingRule(normalized.CustomApps, snapshot.AppId);
+
+        var customAppName = string.Empty;
+        var customDescription = string.Empty;
+
+        if (rule is not null)
+        {
+            customAppName = Truncate(rule.CustomAppName.Trim(), 64);
+            customDescription = Truncate(
+                RenderTemplate(rule.CustomDescription, snapshot, customAppName),
+                256);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var payload = new ReportPayload
+        {
+            AppId = snapshot.AppId,
+            WindowTitle = Truncate(snapshot.WindowTitle, 256),
+            Timestamp = now.ToString("O"),
+            Extra = string.IsNullOrWhiteSpace(customAppName) && string.IsNullOrWhiteSpace(customDescription)
+                ? null
+                : new ReportExtra
+                {
+                    CustomAppName = string.IsNullOrWhiteSpace(customAppName) ? null : customAppName,
+                    CustomDescription = string.IsNullOrWhiteSpace(customDescription) ? null : customDescription,
+                },
+        };
+
+        using var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(15),
+            BaseAddress = new Uri(baseUrl),
+        };
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", normalized.Token.Trim());
+
+        var userAgent = string.IsNullOrWhiteSpace(normalized.UserAgent)
+            ? "live-dashboard-windows-agent/2.0.0"
+            : normalized.UserAgent.Trim();
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+
+        var json = JsonSerializer.Serialize(payload, PayloadJsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+        using var response = await client.PostAsync("/api/report", content);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            return $"HTTP {(int)response.StatusCode}: {body}";
+        }
+
+        _lastSentAt = now;
+        _lastSentAppId = snapshot.AppId;
+        _lastSentTitle = snapshot.WindowTitle;
+
+        WriteLog(normalized, $"[test-ok] {snapshot.AppId} | {snapshot.WindowTitle}");
+        return null;
     }
 
     public async Task StopAsync()
