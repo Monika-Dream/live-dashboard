@@ -5,36 +5,44 @@
 ## 特性
 
 - 支持 `http://` 与 `https://` 后端地址
+- WinForms 设置窗口（服务器地址、Token、上报间隔、心跳间隔、AFK 判定、日志开关）
 - 读取当前前台窗口进程名和窗口标题
-- 按固定间隔调用 `POST /api/report`
+- 支持「自定义应用名称 + 自定义文案」规则（按 `app_id` 匹配）
+- 按上报间隔采样，按心跳间隔保活上报
+- AFK 超时后自动上报 `windows.afk`
 - 使用 `Bearer <token>` 鉴权
 
 ## 给别人直接下载使用（推荐）
 
 1. 让对方下载发布包 zip（例如 `live-dashboard-windows-agent-win-x64.zip`）。
-2. 解压后编辑 `appsettings.json`：
+2. 解压后双击 `start-agent.bat` 启动。
+3. 在弹出的设置窗口中填写：
 
-- `serverUrl`: 例如 `http://192.168.1.100:3000`
-- `token`: 设备 token（从主面板管理里配置）
-- `intervalSeconds`: 上报间隔（秒）
+- `服务器地址`: 例如 `http://192.168.1.100:3000`
+- `Token`: 设备 token（从主面板管理里配置）
+- `上报间隔 / 心跳间隔 / AFK 判定`
+- （可选）开启日志文件
+- （可选）新增自定义应用名称和文案规则
 
-3. 双击 `start-agent.bat` 启动。
-4. 首次启动会看到终端日志，显示 `OK ...` 说明上报成功。
+4. 点击保存后会立即生效，并在系统托盘后台运行。
 
 ## 开发与本地运行
 
 1. 安装 .NET 10 SDK（或更新版本）。
-2. 复制配置文件：
+2. 复制配置文件（可选，首次运行也会自动生成）：
 
 ```powershell
 Copy-Item .\appsettings.example.json .\appsettings.json
 ```
 
-3. 编辑 `appsettings.json`：
+3. 编辑 `appsettings.json`（或直接打开程序图形界面设置）：
 
 - `serverUrl`: 例如 `http://192.168.1.100:3000`
 - `token`: 设备 token（从主面板管理里配置）
-- `intervalSeconds`: 上报间隔（秒）
+- `reportIntervalSeconds`: 上报间隔（秒）
+- `heartbeatIntervalSeconds`: 心跳间隔（秒）
+- `afkThresholdSeconds`: AFK 判定（秒）
+- `customApps`: 自定义应用名称和文案规则
 
 4. 运行：
 
@@ -105,3 +113,4 @@ dotnet publish .\WindowsAgent.csproj -c Release -r win-x64 --self-contained fals
 
 - 该客户端只负责上报，设备名称和 token 映射由后端管理配置决定。
 - 如果后端返回 `401 Unauthorized`，请检查 token 是否与主面板里配置一致。
+- 自定义文案支持占位符：`{title}`、`{appId}`、`{app}`。

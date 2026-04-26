@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WindowsAgent")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0e2f778af3ddd478e3adf3bba8e013e0a775e951")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a72841b163040952a05c9be0d6b039317745a216")]
 [assembly: System.Reflection.AssemblyProductAttribute("WindowsAgent")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WindowsAgent")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
