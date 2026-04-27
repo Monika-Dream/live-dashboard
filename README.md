@@ -172,7 +172,9 @@ curl http://127.0.0.1:3000/api/health
 
 支持两种变量（设置一个即可）：
 - `ADMIN_TOKEN`
-- `ADMIN_PASSWORD`（优先级更高）
+- `ADMIN_PASSWORD`
+
+如果两个都设置了，后端会同时接受这两个值。
 
 默认值：`123456`
 

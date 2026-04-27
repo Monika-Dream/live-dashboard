@@ -1,6 +1,21 @@
 import { timingSafeEqual } from "node:crypto";
 
-const ADMIN_SECRET = process.env.ADMIN_PASSWORD?.trim() || process.env.ADMIN_TOKEN?.trim() || "";
+function normalizeEnvSecret(value: string | undefined): string {
+  const trimmed = value?.trim() || "";
+  if (!trimmed) return "";
+
+  // Docker Compose users sometimes wrap .env values in quotes by habit.
+  const unquoted = trimmed.replace(/^(['"])(.*)\1$/, "$2").trim();
+  return unquoted.replace(/^\uFEFF/, "");
+}
+
+const ADMIN_PASSWORD = normalizeEnvSecret(process.env.ADMIN_PASSWORD);
+const ADMIN_TOKEN = normalizeEnvSecret(process.env.ADMIN_TOKEN);
+const ADMIN_SECRETS = Array.from(new Set([ADMIN_PASSWORD, ADMIN_TOKEN].filter(Boolean)));
+
+if (ADMIN_PASSWORD && ADMIN_TOKEN && ADMIN_PASSWORD !== ADMIN_TOKEN) {
+  console.warn("[admin] ADMIN_PASSWORD and ADMIN_TOKEN differ; both are accepted for compatibility.");
+}
 
 function readToken(req: Request): string {
   const auth = req.headers.get("authorization") || "";
@@ -10,7 +25,7 @@ function readToken(req: Request): string {
 }
 
 export function ensureAdminAuthorized(req: Request): Response | null {
-  if (!ADMIN_SECRET) {
+  if (ADMIN_SECRETS.length === 0) {
     return Response.json(
       { error: "ADMIN_PASSWORD / ADMIN_TOKEN not configured on server" },
       { status: 503 },
@@ -18,7 +33,11 @@ export function ensureAdminAuthorized(req: Request): Response | null {
   }
 
   const token = readToken(req);
-  if (!token || !safeEqual(token, ADMIN_SECRET)) {
+  const isAuthorized = token
+    ? ADMIN_SECRETS.some((secret) => safeEqual(token, secret))
+    : false;
+
+  if (!isAuthorized) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
