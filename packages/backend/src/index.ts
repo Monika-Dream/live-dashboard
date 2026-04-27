@@ -38,22 +38,57 @@ if (configuredDeviceIds.length > 0) {
   }
 }
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
-if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
-  console.error(`[server] Invalid PORT: ${process.env.PORT}, using 3000`);
+function normalizePort(rawValue: string | undefined, fallback: number, envName: string): number {
+  const parsed = parseInt(rawValue || String(fallback), 10);
+  if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
+    console.error(`[server] Invalid ${envName}: ${rawValue}, using ${fallback}`);
+    return fallback;
+  }
+  return parsed;
 }
-const LISTEN_PORT = isNaN(PORT) || PORT < 1 || PORT > 65535 ? 3000 : PORT;
+
+const LISTEN_PORT = normalizePort(process.env.PORT, 3000, "PORT");
+const adminPortRaw = normalizePort(process.env.ADMIN_PORT, 3001, "ADMIN_PORT");
+const ADMIN_LISTEN_PORT =
+  adminPortRaw === LISTEN_PORT
+    ? LISTEN_PORT === 65535
+      ? 3001
+      : LISTEN_PORT + 1
+    : adminPortRaw;
+if (adminPortRaw === LISTEN_PORT) {
+  console.warn(
+    `[server] ADMIN_PORT (${adminPortRaw}) conflicts with PORT (${LISTEN_PORT}), using ${ADMIN_LISTEN_PORT} for admin server.`,
+  );
+}
 
 const STATIC_ROOT = resolve(process.env.STATIC_DIR || "./public");
+const ADMIN_STATIC_ROOT = resolve(process.env.ADMIN_STATIC_DIR || "./admin-public");
 
-// Cache realpath of static root at startup (avoids per-request sync IO)
-let REAL_STATIC_ROOT = "";
-let staticEnabled = false;
-try {
-  REAL_STATIC_ROOT = realpathSync(STATIC_ROOT);
-  staticEnabled = true;
-} catch {
-  console.warn(`[server] Static dir not found: ${STATIC_ROOT} — static files won't be served`);
+type StaticContext = {
+  root: string;
+  realRoot: string;
+  enabled: boolean;
+  label: string;
+};
+
+function createStaticContext(rootPath: string, label: string): StaticContext {
+  try {
+    const realRoot = realpathSync(rootPath);
+    return {
+      root: rootPath,
+      realRoot,
+      enabled: true,
+      label,
+    };
+  } catch {
+    console.warn(`[server] ${label} static dir not found: ${rootPath} — static files won't be served`);
+    return {
+      root: rootPath,
+      realRoot: "",
+      enabled: false,
+      label,
+    };
+  }
 }
 
 async function serveStaticFile(realFile: string): Promise<Response> {
@@ -67,132 +102,166 @@ async function serveStaticFile(realFile: string): Promise<Response> {
   return new Response(Bun.file(realFile));
 }
 
-const server = Bun.serve({
-  port: LISTEN_PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
-    const { pathname } = url;
+const corsHeaders: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
-    // CORS headers for development
-    const corsHeaders: Record<string, string> = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    };
+function appendCorsHeaders(response: Response): Response {
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
 
-    // Preflight
-    if (req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders });
+async function handleApiRequest(req: Request, url: URL): Promise<Response> {
+  const { pathname } = url;
+
+  if (pathname === "/api/report" && req.method === "POST") {
+    return await handleReport(req);
+  }
+  if (pathname === "/api/current" && req.method === "GET") {
+    const clientIp =
+      req.headers.get("x-real-ip") ||
+      req.headers.get("cf-connecting-ip") ||
+      "";
+    return handleCurrent(clientIp, req.headers.get("user-agent") || undefined);
+  }
+  if (pathname === "/api/timeline" && req.method === "GET") {
+    return handleTimeline(url);
+  }
+  if (pathname === "/api/health" && req.method === "GET") {
+    return handleHealth();
+  }
+  if (pathname === "/api/health-data" && req.method === "POST") {
+    return await handleHealthData(req);
+  }
+  if (pathname === "/api/health-data" && req.method === "GET") {
+    return handleHealthDataQuery(url);
+  }
+  if (pathname === "/api/health-webhook" && req.method === "POST") {
+    return await handleHealthWebhook(req);
+  }
+  if (pathname === "/api/consent" && req.method === "GET") {
+    return handleConsentGet(req);
+  }
+  if (pathname === "/api/consent" && req.method === "POST") {
+    return await handleConsentPost(req);
+  }
+  if (pathname === "/api/config" && req.method === "GET") {
+    return handleConfig();
+  }
+  if (pathname === "/api/config/verify" && req.method === "POST") {
+    return handleAdminVerify(req);
+  }
+  if (pathname === "/api/config/admin" && req.method === "GET") {
+    return handleAdminConfigGet(req);
+  }
+  if (pathname === "/api/config/site" && req.method === "POST") {
+    return await handleAdminSiteUpdate(req);
+  }
+  if (pathname === "/api/config/devices" && req.method === "POST") {
+    return await handleAdminDeviceUpsert(req);
+  }
+  if (pathname === "/api/config/devices" && req.method === "DELETE") {
+    return await handleAdminDeviceDelete(req);
+  }
+  if (pathname === "/api/config/dashboards" && req.method === "POST") {
+    return await handleDashboardCreate(req);
+  }
+  if (pathname === "/api/config/dashboards" && req.method === "DELETE") {
+    return await handleDashboardDelete(req);
+  }
+  if (pathname === "/api/proxy" && req.method === "GET") {
+    return await handleProxy(url);
+  }
+
+  return Response.json({ error: "Not found" }, { status: 404 });
+}
+
+async function handleStaticRequest(pathname: string, staticContext: StaticContext): Promise<Response> {
+  if (!staticContext.enabled) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return new Response("Bad request", { status: 400 });
+  }
+
+  const safePath = normalize(decoded).replace(/^(\.\.[\/\\])+/, "");
+  const resolved = resolve(staticContext.root, safePath.replace(/^[\/\\]+/, ""));
+
+  const rel = relative(staticContext.root, resolved);
+  if (rel.startsWith("..")) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const realFile = await realpathAsync(resolved);
+    if (realFile !== staticContext.realRoot && !realFile.startsWith(staticContext.realRoot + sep)) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // API routes
-    let response: Response;
+    const file = Bun.file(realFile);
+    if (await file.exists()) {
+      return await serveStaticFile(realFile);
+    }
 
-    try {
-      if (pathname === "/api/report" && req.method === "POST") {
-        response = await handleReport(req);
-      } else if (pathname === "/api/current" && req.method === "GET") {
-        const clientIp =
-          req.headers.get("x-real-ip") ||
-          req.headers.get("cf-connecting-ip") ||
-          server.requestIP(req)?.address ||
-          "";
-        response = handleCurrent(clientIp, req.headers.get("user-agent") || undefined);
-      } else if (pathname === "/api/timeline" && req.method === "GET") {
-        response = handleTimeline(url);
-      } else if (pathname === "/api/health" && req.method === "GET") {
-        response = handleHealth();
-      } else if (pathname === "/api/health-data" && req.method === "POST") {
-        response = await handleHealthData(req);
-      } else if (pathname === "/api/health-data" && req.method === "GET") {
-        response = handleHealthDataQuery(url);
-      } else if (pathname === "/api/health-webhook" && req.method === "POST") {
-        response = await handleHealthWebhook(req);
-      } else if (pathname === "/api/consent" && req.method === "GET") {
-        response = handleConsentGet(req);
-      } else if (pathname === "/api/consent" && req.method === "POST") {
-        response = await handleConsentPost(req);
-      } else if (pathname === "/api/config" && req.method === "GET") {
-        response = handleConfig();
-      } else if (pathname === "/api/config/verify" && req.method === "POST") {
-        response = handleAdminVerify(req);
-      } else if (pathname === "/api/config/admin" && req.method === "GET") {
-        response = handleAdminConfigGet(req);
-      } else if (pathname === "/api/config/site" && req.method === "POST") {
-        response = await handleAdminSiteUpdate(req);
-      } else if (pathname === "/api/config/devices" && req.method === "POST") {
-        response = await handleAdminDeviceUpsert(req);
-      } else if (pathname === "/api/config/devices" && req.method === "DELETE") {
-        response = await handleAdminDeviceDelete(req);
-      } else if (pathname === "/api/config/dashboards" && req.method === "POST") {
-        response = await handleDashboardCreate(req);
-      } else if (pathname === "/api/config/dashboards" && req.method === "DELETE") {
-        response = await handleDashboardDelete(req);
-      } else if (pathname === "/api/proxy" && req.method === "GET") {
-        response = await handleProxy(url);
-      } else if (!pathname.startsWith("/api/")) {
-        // Static file serving disabled if directory doesn't exist
-        if (!staticEnabled) {
-          response = Response.json({ error: "Not found" }, { status: 404 });
-        } else {
-          // Path traversal + symlink protection
-          let decoded: string;
-          try {
-            decoded = decodeURIComponent(pathname);
-          } catch {
-            return new Response("Bad request", { status: 400 });
-          }
-          const safePath = normalize(decoded).replace(/^(\.\.[\/\\])+/, "");
-          const resolved = resolve(STATIC_ROOT, safePath.replace(/^[\/\\]+/, ""));
+    const indexPath = `${staticContext.realRoot}/index.html`;
+    const indexFile = Bun.file(indexPath);
+    if (await indexFile.exists()) {
+      return await serveStaticFile(indexPath);
+    }
 
-          // Quick check: relative path must not escape root
-          const rel = relative(STATIC_ROOT, resolved);
-          if (rel.startsWith("..")) {
-            response = Response.json({ error: "Forbidden" }, { status: 403 });
-          } else {
-            // Resolve symlinks and verify the real path is under root, then serve
-            try {
-              const realFile = await realpathAsync(resolved);
-              if (realFile !== REAL_STATIC_ROOT && !realFile.startsWith(REAL_STATIC_ROOT + sep)) {
-                response = Response.json({ error: "Forbidden" }, { status: 403 });
-              } else {
-                // Serve from the resolved real path
-                const file = Bun.file(realFile);
-                if (await file.exists()) {
-                  return serveStaticFile(realFile);
-                }
-                // SPA fallback: file not found (or is a directory), serve index.html
-                const indexFile = Bun.file(`${REAL_STATIC_ROOT}/index.html`);
-                if (await indexFile.exists()) {
-                  return serveStaticFile(`${REAL_STATIC_ROOT}/index.html`);
-                }
-                response = Response.json({ error: "Not found" }, { status: 404 });
-              }
-            } catch {
-              // realpath fails if file doesn't exist — try SPA fallback
-              const indexFile = Bun.file(`${REAL_STATIC_ROOT}/index.html`);
-              if (await indexFile.exists()) {
-                return serveStaticFile(`${REAL_STATIC_ROOT}/index.html`);
-              }
-              response = Response.json({ error: "Not found" }, { status: 404 });
-            }
-          }
-        }
-      } else {
-        response = Response.json({ error: "Not found" }, { status: 404 });
+    return Response.json({ error: "Not found" }, { status: 404 });
+  } catch {
+    const indexPath = `${staticContext.realRoot}/index.html`;
+    const indexFile = Bun.file(indexPath);
+    if (await indexFile.exists()) {
+      return await serveStaticFile(indexPath);
+    }
+
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+}
+
+function startServer(port: number, staticContext: StaticContext, label: string) {
+  const server = Bun.serve({
+    port,
+    async fetch(req) {
+      const url = new URL(req.url);
+      const { pathname } = url;
+
+      if (req.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: corsHeaders });
       }
-    } catch (e) {
-      console.error("[server] Unhandled error:", e);
-      response = Response.json({ error: "Internal error" }, { status: 500 });
-    }
 
-    // Append CORS headers to API responses
-    for (const [key, value] of Object.entries(corsHeaders)) {
-      response.headers.set(key, value);
-    }
+      let response: Response;
+      try {
+        if (pathname.startsWith("/api/")) {
+          response = await handleApiRequest(req, url);
+        } else {
+          response = await handleStaticRequest(pathname, staticContext);
+        }
+      } catch (e) {
+        console.error(`[server:${label}] Unhandled error:`, e);
+        response = Response.json({ error: "Internal error" }, { status: 500 });
+      }
 
-    return response;
-  },
-});
+      return appendCorsHeaders(response);
+    },
+  });
 
-console.log(`[server] Live Dashboard backend running on http://localhost:${server.port}`);
+  console.log(`[server] ${label} running on http://localhost:${server.port}`);
+  return server;
+}
+
+const dashboardStaticContext = createStaticContext(STATIC_ROOT, "dashboard");
+const adminStaticContext = createStaticContext(ADMIN_STATIC_ROOT, "admin");
+
+startServer(LISTEN_PORT, dashboardStaticContext, "dashboard app");
+startServer(ADMIN_LISTEN_PORT, adminStaticContext, "admin app");

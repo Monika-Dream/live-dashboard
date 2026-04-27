@@ -5,9 +5,12 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+      - "3001:3001"
     environment:
       - PORT=3000
+      - ADMIN_PORT=3001
       - STATIC_DIR=/app/public
+      - ADMIN_STATIC_DIR=/app/admin-public
       - DB_PATH=/data/live-dashboard.db
       - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
       - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}

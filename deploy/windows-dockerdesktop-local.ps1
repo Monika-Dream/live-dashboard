@@ -220,6 +220,7 @@ if (docker ps -a --format "{{.Names}}" | Select-String -SimpleMatch "live-dashbo
 
 docker run -d --name live-dashboard `
 	-p 3000:3000 `
+	-p 3001:3001 `
 	-v dashboard_data:/data `
 	--env-file .env `
 	live-dashboard:local | Out-Null
@@ -247,4 +248,5 @@ Write-Host "[8/8] Opening browser..."
 Start-Process "http://127.0.0.1:3000"
 
 Write-Host "Live Dashboard is running at: http://127.0.0.1:3000"
+Write-Host "Live Dashboard admin is running at: http://127.0.0.1:3001"
 Write-Host "External dashboards detected: $panelCount"

@@ -6,6 +6,7 @@
 - 可以直接在网页里添加/更新/删除多人面板。
 - 不需要改 `.env`，也不需要重新构建镜像。
 - 只要先设置好管理密码（`ADMIN_TOKEN` 或 `ADMIN_PASSWORD`）即可。
+- 默认端口分离：`3000` 只看主面板，`3001` 才显示管理面板。
 - 默认管理密码是 `123456`（建议上线后立即修改）。
 
 ---
@@ -71,6 +72,7 @@ Windows（PowerShell）先生成密钥：
 ```powershell
 docker run -d --name live-dashboard `
 	-p 3000:3000 `
+	-p 3001:3001 `
 	-v dashboard_data:/data `
 	-e "HASH_SECRET=d21d3ab874d8d0f30f59885efa82dec0e470b837788495fd57198f9dbfdb7d17" `
 	-e "DEVICE_TOKEN_1=9efb4f39438e8e892006fef7ccac2cdb:pc-1:5050 5600x:windows" `
@@ -96,6 +98,11 @@ Invoke-RestMethod http://127.0.0.1:3000/api/health
 
 浏览器打开：
 - http://127.0.0.1:3000
+- http://127.0.0.1:3001
+
+说明：
+- `3000` 是展示页（不给管理入口）。
+- `3001` 是管理页（有“多人面板管理”，需输入管理密码）。
 
 ---
 
@@ -154,6 +161,10 @@ docker compose up -d --build
 ```bash
 curl http://127.0.0.1:3000/api/health
 ```
+
+浏览器打开：
+- `http://127.0.0.1:3000`（展示页）
+- `http://127.0.0.1:3001`（管理页）
 
 ---
 
@@ -238,7 +249,7 @@ docker compose up -d --build
 
 ## 网页里管理多人面板（无需改 .env、无需重建）
 
-打开首页后，在“多人面板管理”区域：
+打开管理页 `http://你的服务器IP:3001` 后，在“多人面板管理”区域：
 
 1. 输入管理密码（`ADMIN_TOKEN` 或 `ADMIN_PASSWORD` 的值）
 2. 填写面板信息（ID、名称、URL、描述可选）
@@ -249,6 +260,7 @@ docker compose up -d --build
 - 新增/更新/删除会立刻生效。
 - 不需要修改 `.env`。
 - 不需要重新构建 Docker 镜像。
+- `3000` 端口不会显示管理面板，适合对外只读展示。
 
 ### 多人面板部署方法（推荐）
 
@@ -336,6 +348,8 @@ docker compose up -d --build
 ```
 
 然后浏览器强制刷新（Ctrl+F5）。
+
+并确认你访问的是 `3001` 端口（`3000` 默认不显示管理面板）。
 
 ### 3) 只有网址的人能不能乱改？
 

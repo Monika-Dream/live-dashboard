@@ -32,6 +32,7 @@ import HealthData from "@/components/HealthData";
 import SiteMetadataSync from "@/components/SiteMetadataSync";
 
 const SNAPSHOT_POLL_INTERVAL = 20_000;
+const ADMIN_PANEL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ADMIN_PANEL === "true";
 
 interface DashboardOption extends DashboardProfile {
   isPrimary: boolean;
@@ -406,26 +407,28 @@ function HomeInner({
         displayName={activeDashboard?.name ?? displayName}
       />
 
-      <DashboardAdminPanel
-        dashboards={dashboards.filter((item) => !item.isPrimary)}
-        siteConfig={{
-          displayName: config.displayName,
-          siteTitle: config.siteTitle,
-          siteDescription: config.siteDescription,
-        }}
-        devices={adminDevices}
-        adminToken={adminToken}
-        adminStatus={adminStatus}
-        onAdminTokenChange={handleAdminTokenChange}
-        onAdminUnlock={handleAdminUnlock}
-        onAdminLock={handleAdminLock}
-        onCreate={handleDashboardCreate}
-        onDelete={handleDashboardDelete}
-        onReload={handleDashboardReload}
-        onSaveSite={handleSiteSave}
-        onSaveDevice={handleDeviceSave}
-        onDeleteDevice={handleDeviceDelete}
-      />
+      {ADMIN_PANEL_ENABLED && (
+        <DashboardAdminPanel
+          dashboards={dashboards.filter((item) => !item.isPrimary)}
+          siteConfig={{
+            displayName: config.displayName,
+            siteTitle: config.siteTitle,
+            siteDescription: config.siteDescription,
+          }}
+          devices={adminDevices}
+          adminToken={adminToken}
+          adminStatus={adminStatus}
+          onAdminTokenChange={handleAdminTokenChange}
+          onAdminUnlock={handleAdminUnlock}
+          onAdminLock={handleAdminLock}
+          onCreate={handleDashboardCreate}
+          onDelete={handleDashboardDelete}
+          onReload={handleDashboardReload}
+          onSaveSite={handleSiteSave}
+          onSaveDevice={handleDeviceSave}
+          onDeleteDevice={handleDeviceDelete}
+        />
+      )}
 
       <DashboardSwitcher
         dashboards={resolvedSnapshots}
