@@ -59,7 +59,7 @@ function NeedsGeneratedValue {
 	return $false
 }
 
-function Ensure-DefaultValue {
+function Set-DefaultValue {
 	param(
 		[hashtable]$Map,
 		[string]$Key,
@@ -72,7 +72,7 @@ function Ensure-DefaultValue {
 	}
 }
 
-function Ensure-DeviceToken {
+function Set-DeviceToken {
 	param(
 		[hashtable]$Map,
 		[string]$Key,
@@ -90,7 +90,7 @@ function Ensure-DeviceToken {
 	$Map[$Key] = "$token`:$DeviceId`:$DeviceName`:$Platform"
 }
 
-function Is-ValidDashboardsJson {
+function Test-ValidDashboardsJson {
 	param([string]$Value)
 
 	if ([string]::IsNullOrWhiteSpace($Value)) {
@@ -173,9 +173,9 @@ if (-not (Test-Path $envPath)) {
 
 $envMap = Read-EnvMap -Path $envPath
 
-Ensure-DefaultValue -Map $envMap -Key "PORT" -DefaultValue "3000"
-Ensure-DefaultValue -Map $envMap -Key "STATIC_DIR" -DefaultValue "/app/public"
-Ensure-DefaultValue -Map $envMap -Key "DB_PATH" -DefaultValue "/data/live-dashboard.db"
+Set-DefaultValue -Map $envMap -Key "PORT" -DefaultValue "3000"
+Set-DefaultValue -Map $envMap -Key "STATIC_DIR" -DefaultValue "/app/public"
+Set-DefaultValue -Map $envMap -Key "DB_PATH" -DefaultValue "/data/live-dashboard.db"
 if (NeedsGeneratedValue ([string]($envMap["HASH_SECRET"]))) {
 	$envMap["HASH_SECRET"] = New-HexToken -Bytes 32
 }
@@ -183,17 +183,17 @@ if (NeedsGeneratedValue ([string]($envMap["ADMIN_TOKEN"]))) {
 	$envMap["ADMIN_TOKEN"] = "123456"
 }
 
-Ensure-DeviceToken -Map $envMap -Key "DEVICE_TOKEN_1" -DeviceId "pc-1" -DeviceName "My PC" -Platform "windows"
-Ensure-DeviceToken -Map $envMap -Key "DEVICE_TOKEN_2" -DeviceId "phone-1" -DeviceName "My Phone" -Platform "android"
-Ensure-DefaultValue -Map $envMap -Key "DEVICE_TOKEN_3" -DefaultValue ""
-Ensure-DefaultValue -Map $envMap -Key "DEVICE_TOKEN_4" -DefaultValue ""
-Ensure-DefaultValue -Map $envMap -Key "DISPLAY_NAME" -DefaultValue "xuyihong"
-Ensure-DefaultValue -Map $envMap -Key "SITE_TITLE" -DefaultValue "xuyihong Now"
-Ensure-DefaultValue -Map $envMap -Key "SITE_DESC" -DefaultValue "What is xuyihong doing right now?"
-Ensure-DefaultValue -Map $envMap -Key "SITE_FAVICON" -DefaultValue "/favicon.ico"
+Set-DeviceToken -Map $envMap -Key "DEVICE_TOKEN_1" -DeviceId "pc-1" -DeviceName "My PC" -Platform "windows"
+Set-DeviceToken -Map $envMap -Key "DEVICE_TOKEN_2" -DeviceId "phone-1" -DeviceName "My Phone" -Platform "android"
+Set-DefaultValue -Map $envMap -Key "DEVICE_TOKEN_3" -DefaultValue ""
+Set-DefaultValue -Map $envMap -Key "DEVICE_TOKEN_4" -DefaultValue ""
+Set-DefaultValue -Map $envMap -Key "DISPLAY_NAME" -DefaultValue "xuyihong"
+Set-DefaultValue -Map $envMap -Key "SITE_TITLE" -DefaultValue "xuyihong Now"
+Set-DefaultValue -Map $envMap -Key "SITE_DESC" -DefaultValue "What is xuyihong doing right now?"
+Set-DefaultValue -Map $envMap -Key "SITE_FAVICON" -DefaultValue "/favicon.ico"
 
 $defaultDashboards = '[]'
-if (-not (Is-ValidDashboardsJson ([string]($envMap["EXTERNAL_DASHBOARDS"])))) {
+if (-not (Test-ValidDashboardsJson ([string]($envMap["EXTERNAL_DASHBOARDS"])))) {
 	$envMap["EXTERNAL_DASHBOARDS"] = $defaultDashboards
 }
 

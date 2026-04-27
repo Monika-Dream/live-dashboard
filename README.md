@@ -14,7 +14,7 @@
 
 | 平台 | 下载链接 | 说明 |
 |---|---|---|
-| Windows | https://github.com/Monika-Dream/live-dashboard/releases | 原作者链接 |
+| Windows | https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-windows-agent-win-x64.zip | 你的 Windows App 链接 |
 | macOS | https://github.com/Monika-Dream/live-dashboard/releases | 原作者链接 |
 | Android | https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-android-agent.apk | 你的 Android App 链接 |
 
@@ -136,6 +136,14 @@ ADMIN_TOKEN=你自己的管理密码
 ```
 
 ### 2. 启动
+
+先准备外部网络（`docker-compose.yml` 默认使用 `your_external_network`）：
+
+```bash
+docker network create your_external_network || true
+```
+
+如果你要使用其他网络名，请先修改 [docker-compose.yml](docker-compose.yml) 里的网络配置。
 
 ```bash
 docker compose up -d --build
