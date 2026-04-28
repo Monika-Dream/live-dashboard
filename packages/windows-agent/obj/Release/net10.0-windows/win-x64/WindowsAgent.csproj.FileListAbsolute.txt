@@ -1,0 +1,12 @@
+D:\live-dashboard-main\packages\windows-agent\bin\Release\net10.0-windows\win-x64\WindowsAgent.exe
+D:\live-dashboard-main\packages\windows-agent\bin\Release\net10.0-windows\win-x64\WindowsAgent.deps.json
+D:\live-dashboard-main\packages\windows-agent\bin\Release\net10.0-windows\win-x64\WindowsAgent.runtimeconfig.json
+D:\live-dashboard-main\packages\windows-agent\bin\Release\net10.0-windows\win-x64\WindowsAgent.dll
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\WindowsAgent.GeneratedMSBuildEditorConfig.editorconfig
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\WindowsAgent.AssemblyInfoInputs.cache
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\WindowsAgent.AssemblyInfo.cs
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\WindowsAgent.csproj.CoreCompileInputs.cache
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\WindowsAgent.dll
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\refint\WindowsAgent.dll
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\WindowsAgent.genruntimeconfig.cache
+D:\live-dashboard-main\packages\windows-agent\obj\Release\net10.0-windows\win-x64\ref\WindowsAgent.dll

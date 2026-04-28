@@ -1,102 +1,365 @@
 # Live Dashboard
 
-实时设备活动仪表盘 — 公开展示你正在使用的应用，拥有二次元风格 UI 和隐私优先设计。
+这是一个可以实时展示“你正在用什么应用”的网页看板。示例:https://xuyihong.icu/   qq交流群1093496287
 
-在线演示：https://now.monikadream.homes/
+你要的核心点先说结论：
+- 可以直接在网页里添加/更新/删除多人面板。
+- 不需要改 `.env`，也不需要重新构建镜像。
+- 只要先设置好管理密码（`ADMIN_TOKEN` 或 `ADMIN_PASSWORD`）即可。
+- 默认端口分离：`3000` 只看主面板，`3001` 才显示管理面板。
+- 默认管理密码是 `123456`（建议上线后立即修改）。
 
-## 截图
+---
 
-**日间模式（设备在线）**
+## 下载链接（按你的要求）
 
-![日间模式](docs/preview-main-light.png)
+| 平台 | 下载链接 | 说明 |
+|---|---|---|
+| Windows | https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-windows-agent-win-x64.zip | 你的 Windows App 链接 |
+| macOS | https://github.com/Monika-Dream/live-dashboard/releases | 原作者链接 |
+| Android | https://github.com/nmb1337/live-dashboard/releases/latest/download/live-dashboard-android-agent.apk | 你的 Android App 链接 |
 
-**夜间模式（设备离线）**
+---
 
-![夜间模式](docs/preview-main-dark.png)
+## 部署方式 1：Windows（PowerShell + Docker Desktop）
 
-## 特色
+### 1. 先准备
 
-- 猫耳装饰的视觉小说风格对话框 + 中文戏剧化活动描述
-- 飘落的樱花花瓣动画，夜间自动切换萤火主题
-- 三级隐私系统（SHOW / BROWSER / HIDE）保护敏感窗口标题
-- 系统托盘常驻 + AFK 检测（看视频/听歌时自动豁免）
-- 音乐检测（Spotify、QQ音乐、网易云等）
-- Health Connect 健康数据同步（Android）
-- 多设备多平台支持（Windows / macOS / Android）
+1. 安装并启动 Docker Desktop。
+2. 打开 PowerShell。
+3. 进入项目目录：
 
-## 快速开始
-
-```bash
-# 1. 生成密钥
-TOKEN=$(openssl rand -hex 16)
-SECRET=$(openssl rand -hex 32)
-
-# 2. 启动
-docker run -d --name live-dashboard \
-  -p 3000:3000 \
-  -v dashboard_data:/data \
-  -e HASH_SECRET=$SECRET \
-  -e DEVICE_TOKEN_1=$TOKEN:my-pc:MyPC:windows \
-  ghcr.io/monika-dream/live-dashboard:latest
-
-# 3. 打开 http://localhost:3000
-echo "Token: $TOKEN  ← Agent 配置用"
+```powershell
+Set-Location D:\live-dashboard-main
 ```
 
-详细部署说明（docker-compose、VPS + Nginx + HTTPS）见 [Wiki - 快速部署](https://github.com/Monika-Dream/live-dashboard/wiki/快速部署)。
+### 2. 一键启动（推荐）
 
-## Agent 下载
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+.\deploy\windows-dockerdesktop-local.ps1
+```
 
-从 [GitHub Releases](https://github.com/Monika-Dream/live-dashboard/releases) 下载对应平台的客户端：
+脚本会自动：
+- 生成/修复 `.env`
+- 生成设备 token
+- 写入默认管理密码（`ADMIN_TOKEN=123456`，可自行修改）
+- 构建并启动容器
 
-| 平台 | 下载文件 | 配置指南 |
-|------|---------|---------|
-| Windows | `live-dashboard-agent.exe` | [Wiki - Windows Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Windows) |
-| macOS | `live-dashboard-agent-macos.zip` | [Wiki - macOS Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-macOS) |
-| Android | `live-dashboard.apk` | [Wiki - Android App](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Android) |
+### 3. 手动启动（docker run）
 
-## 主题
+如果你不想用一键脚本，也可以手动部署。
 
-| 分支 | 风格 | 说明 |
-|------|------|------|
-| `main` | 经典和风 | 暖粉色系、猫耳气泡框、樱花花瓣 |
-| `redesign/blossom-letter` | 花信 · 文艺书卷 | OKLCH 暖纸色、双栏布局、AI 每日总结 |
-| `redesign/pixel-room` | 像素房间 | 像素风 + 日夜切换（开发中） |
+先在项目目录构建镜像：
 
-## 分支结构
+```powershell
+Set-Location D:\live-dashboard-main
+docker build -t live-dashboard:local .
+```
 
-| 分支 | 内容 |
-|------|------|
-| `main` | 后端 + 前端 + Docker + CI |
-| `windows-source` | Windows Agent 源码（Python） |
-| `macos-source` | macOS Agent 源码（Python） |
-| `android-source` | Android App 源码（Kotlin） |
+Windows（PowerShell）先生成密钥：
 
-## 技术栈
+```powershell
+# 设备密钥（每台设备各生成一个，记下来）
+-join((1..16)|%{'{0:x2}'-f(Get-Random -Max 256)})
 
-| 组件 | 技术 |
-|------|------|
-| 后端 | Bun + TypeScript + SQLite |
-| 前端 | Next.js 15 + React 19 + Tailwind CSS 4（静态导出） |
-| Windows Agent | Python + Win32 API + pystray + pycaw |
-| macOS Agent | Python + AppleScript + pystray |
-| Android App | Kotlin + Jetpack Compose + Health Connect |
-| 部署 | Docker 多阶段构建 + Nginx |
+# HASH_SECRET（服务端内部用，只需一个）
+-join((1..32)|%{'{0:x2}'-f(Get-Random -Max 256)})
+```
 
-## 文档
+然后运行容器（下面是你提供的示例）：
 
-完整文档见 [GitHub Wiki](https://github.com/Monika-Dream/live-dashboard/wiki)：
+```powershell
+docker run -d --name live-dashboard `
+	-p 3000:3000 `
+	-p 3001:3001 `
+	-v dashboard_data:/data `
+	-e "HASH_SECRET=d21d3ab874d8d0f30f59885efa82dec0e470b837788495fd57198f9dbfdb7d17" `
+	-e "DEVICE_TOKEN_1=9efb4f39438e8e892006fef7ccac2cdb:pc-1:5050 5600x:windows" `
+	-e "DEVICE_TOKEN_2=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6:phone-1:vivox200s:android" `
+	-e "DISPLAY_NAME=xuyihong" `
+	-e "SITE_TITLE=xuyihong Now" `
+	-e "SITE_DESC=What is xuyihong doing right now?" `
+	-e "ADMIN_TOKEN=123456" `
+	-e "EXTERNAL_DASHBOARDS=[{""id"":""aloys23"",""name"":""DBJD-CR"",""url"":""https://livedashboard.aloys23.link""},{""id"":""ailucat"",""name"":""八九四"",""url"":""https://live.ailucat.top""},{""id"":""fun91"",""name"":""Monika"",""url"":""https://live.91fun.asia""}]" `
+	live-dashboard:local
+```
 
-- [快速部署](https://github.com/Monika-Dream/live-dashboard/wiki/快速部署) — Docker 一键部署
-- [VPS 部署指南](https://github.com/Monika-Dream/live-dashboard/wiki/VPS-部署指南) — Nginx + HTTPS
-- [功能特性](https://github.com/Monika-Dream/live-dashboard/wiki/功能特性) — 完整功能列表
-- [架构与项目结构](https://github.com/Monika-Dream/live-dashboard/wiki/架构与项目结构) — 架构图 + 项目树
-- [隐私分级系统](https://github.com/Monika-Dream/live-dashboard/wiki/隐私分级系统) — SHOW / BROWSER / HIDE
-- [API 参考](https://github.com/Monika-Dream/live-dashboard/wiki/API-参考) — 端点、请求体、响应格式
-- [环境变量](https://github.com/Monika-Dream/live-dashboard/wiki/环境变量) — 配置项一览
-- [安全设计](https://github.com/Monika-Dream/live-dashboard/wiki/安全设计) — 安全特性
-- [自定义](https://github.com/Monika-Dream/live-dashboard/wiki/自定义) — 显示名、元数据、主题色
-- [本地开发](https://github.com/Monika-Dream/live-dashboard/wiki/本地开发) — 从源码构建
+说明：
+- 设备密钥请替换为你自己生成的值，每台设备都要不同。
+- `HASH_SECRET` 只需要一个，用你自己生成的值替换示例值。
+- `ADMIN_TOKEN=123456` 是当前默认管理密码，建议上线后改为强密码。
+
+### 4. 验证
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/api/health
+```
+
+浏览器打开：
+- http://127.0.0.1:3000
+- http://127.0.0.1:3001
+
+说明：
+- `3000` 是展示页（不给管理入口）。
+- `3001` 是管理页（有“多人面板管理”，需输入管理密码）。
+
+---
+
+## 部署方式 2：Linux（Docker）
+
+### 1. 准备 `.env`
+
+```bash
+cd /path/to/live-dashboard-main
+cp .env.example .env
+```
+
+### 1.1 先生成密钥（每台设备一个 + 服务端一个）
+
+每台设备需要一个独立的设备密钥，另外还需要一个服务端密钥（`HASH_SECRET`）。
+
+Linux / macOS：
+
+```bash
+# 设备密钥（每台设备各生成一个，记下来）
+openssl rand -hex 16
+
+# HASH_SECRET（服务端内部用，只需一个）
+openssl rand -hex 32
+```
+
+说明：
+- 每台设备的“设备密钥”都要不同。
+- `HASH_SECRET` 整个服务只需要配置一个。
+- 生成出的设备密钥，作为 `DEVICE_TOKEN_N=密钥:device_id:device_name:platform` 里的“密钥”部分使用。
+
+编辑 `.env`，至少改这几项：
+
+```env
+DEVICE_TOKEN_1=你的设备token:my-pc:My PC:linux
+HASH_SECRET=你自己的随机字符串
+ADMIN_TOKEN=你自己的管理密码
+```
+
+### 2. 启动
+
+先准备外部网络（`docker-compose.yml` 默认使用 `your_external_network`）：
+
+```bash
+docker network create your_external_network || true
+```
+
+如果你要使用其他网络名，请先修改 [docker-compose.yml](docker-compose.yml) 里的网络配置。
+
+```bash
+docker compose up -d --build
+```
+
+### 3. 验证
+
+```bash
+curl http://127.0.0.1:3000/api/health
+```
+
+浏览器打开：
+- `http://127.0.0.1:3000`（展示页）
+- `http://127.0.0.1:3001`（管理页）
+
+---
+
+## 如何设置“管理面板密码”
+
+支持两种变量（设置一个即可）：
+- `ADMIN_TOKEN`
+- `ADMIN_PASSWORD`
+
+如果两个都设置了，后端会同时接受这两个值。
+
+默认值：`123456`
+
+### 密码设置位置（最重要）
+
+管理密码写在项目根目录的 `.env` 文件里：
+
+- Windows 路径示例：`D:\live-dashboard-main\.env`
+- Linux 路径示例：`/path/to/live-dashboard-main/.env`
+
+也就是说，你只需要改 `.env`，不是改前端代码。
+
+### 直接可用的设置方法
+
+Windows（PowerShell）：
+
+```powershell
+Set-Location D:\live-dashboard-main
+Copy-Item .env.example .env -Force
+
+# 二选一（推荐只保留一个）
+Add-Content .env "ADMIN_TOKEN=your_strong_password_here"
+# 或
+Add-Content .env "ADMIN_PASSWORD=your_strong_password_here"
+```
+
+Linux：
+
+```bash
+cd /path/to/live-dashboard-main
+cp .env.example .env
+
+# 二选一（推荐只保留一个）
+echo 'ADMIN_TOKEN=your_strong_password_here' >> .env
+# 或
+echo 'ADMIN_PASSWORD=your_strong_password_here' >> .env
+```
+
+设置后重启容器：
+
+```powershell
+docker compose up -d --build
+```
+
+查看当前是否已设置：
+
+Windows（PowerShell）：
+
+```powershell
+Get-Content .env | Select-String "ADMIN_TOKEN|ADMIN_PASSWORD"
+```
+
+Linux：
+
+```bash
+grep -E 'ADMIN_TOKEN|ADMIN_PASSWORD' .env
+```
+
+示例：
+
+```env
+ADMIN_TOKEN=your_strong_password_here
+# 或
+ADMIN_PASSWORD=your_strong_password_here
+```
+
+修改后重启：
+
+```powershell
+docker compose up -d --build
+```
+
+---
+
+## 网页里管理多人面板（无需改 .env、无需重建）
+
+打开管理页 `http://你的服务器IP:3001` 后，在“多人面板管理”区域：
+
+1. 输入管理密码（`ADMIN_TOKEN` 或 `ADMIN_PASSWORD` 的值）
+2. 填写面板信息（ID、名称、URL、描述可选）
+3. 点击“添加 / 更新面板”
+4. 删除时点击“删除 xxx”
+
+说明：
+- 新增/更新/删除会立刻生效。
+- 不需要修改 `.env`。
+- 不需要重新构建 Docker 镜像。
+- `3000` 端口不会显示管理面板，适合对外只读展示。
+
+### 多人面板部署方法（推荐）
+
+你可以用下面这个最简单流程：
+
+1. 先把主站部署好（Windows 或 Linux 任意一种方式都行）。
+2. 在网页“多人面板管理”里输入管理密码解锁。
+3. 逐个添加外部面板：
+	- 面板 ID：例如 `friend-alice`
+	- 显示名称：例如 `Alice`
+	- 面板 URL：例如 `https://alice.example.com`
+4. 点击“添加 / 更新面板”，页面会立即出现新面板。
+
+补充说明：
+- 这种方式会把面板保存到数据库卷里，容器重启后依然保留。
+- 如果你执行了清空数据卷（例如 `docker compose down -v`），数据库里的面板也会被清掉。
+
+---
+
+## 多设备部署方法
+
+只要每台设备使用不同的 `DEVICE_TOKEN_N`，就可以同时上报并在同一个看板显示。
+
+Token 格式固定为：
+
+`token:device_id:device_name:platform`
+
+`platform` 常用值：
+- Windows 设备：`windows`
+- Android 设备：`android`
+- macOS 设备：`macos`
+- Linux 设备：`linux`
+
+### 示例：2 台电脑 + 2 台手机
+
+```env
+DEVICE_TOKEN_1=token_pc_1:pc-1:Office-PC:windows
+DEVICE_TOKEN_2=token_phone_1:phone-1:My-Phone:android
+DEVICE_TOKEN_3=token_pc_2:pc-2:Home-Mac:macos
+DEVICE_TOKEN_4=token_phone_2:phone-2:Backup-Phone:android
+```
+
+把这些写入 `.env` 后，执行：
+
+```powershell
+docker compose up -d
+```
+
+然后在每台客户端里填对应 token，即可在网页上同时看到多设备状态。
+
+---
+
+## 常用命令
+
+```powershell
+# 查看日志
+docker logs --tail 100 live_dashboard
+
+# 重启容器
+docker restart live_dashboard
+
+# 重新构建并启动
+docker compose up -d --build
+
+# 停止
+docker compose down
+```
+
+---
+
+## 常见问题
+
+### 1) 网页里添加/删除面板失败
+
+先检查：
+- 管理密码是否输入正确
+- `.env` 是否有 `ADMIN_TOKEN` 或 `ADMIN_PASSWORD`
+
+### 2) 看不到“多人面板管理”区域
+
+执行：
+
+```powershell
+docker compose up -d --build
+```
+
+然后浏览器强制刷新（Ctrl+F5）。
+
+并确认你访问的是 `3001` 端口（`3000` 默认不显示管理面板）。
+
+### 3) 只有网址的人能不能乱改？
+
+不能。
+
+因为新增/更新/删除必须带管理密码（后端鉴权），没密码会返回 401。
+
+---
 
 ## 许可证
 

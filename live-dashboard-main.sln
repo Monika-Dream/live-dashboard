@@ -1,0 +1,32 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "packages", "packages", "{809F86A1-1C4C-B159-0CD4-DF9D33D876CE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "windows-agent", "windows-agent", "{FA8A717E-02AF-EAEE-14AB-FF7DC16A0574}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsAgent", "packages\windows-agent\WindowsAgent.csproj", "{40FA8004-1615-7AD8-F708-A0A42244519E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{40FA8004-1615-7AD8-F708-A0A42244519E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40FA8004-1615-7AD8-F708-A0A42244519E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40FA8004-1615-7AD8-F708-A0A42244519E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40FA8004-1615-7AD8-F708-A0A42244519E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FA8A717E-02AF-EAEE-14AB-FF7DC16A0574} = {809F86A1-1C4C-B159-0CD4-DF9D33D876CE}
+		{40FA8004-1615-7AD8-F708-A0A42244519E} = {FA8A717E-02AF-EAEE-14AB-FF7DC16A0574}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9C9E8D9A-8FA9-48B9-A043-47218B12FA24}
+	EndGlobalSection
+EndGlobal

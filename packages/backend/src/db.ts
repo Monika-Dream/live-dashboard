@@ -113,6 +113,67 @@ db.run(`
   ON health_records(type, recorded_at)
 `);
 
+// ── Device consent table (privacy/compliance) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS device_consents (
+    device_id TEXT PRIMARY KEY,
+    consent_version INTEGER NOT NULL DEFAULT 1,
+    activity_reporting INTEGER NOT NULL DEFAULT 0,
+    health_reporting INTEGER NOT NULL DEFAULT 0,
+    granted_scopes TEXT NOT NULL DEFAULT '[]',
+    granted_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+
+// ── External dashboards (runtime managed) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS external_dashboards (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS hidden_external_dashboards (
+    id TEXT PRIMARY KEY,
+    hidden_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// ── Runtime-managed device tokens (for admin panel edits) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS runtime_device_configs (
+    device_id TEXT PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    device_name TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_runtime_device_configs_platform
+  ON runtime_device_configs(platform)
+`);
+
+// ── Runtime-managed site settings (for admin panel edits) ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS runtime_site_settings (
+    setting_key TEXT PRIMARY KEY,
+    setting_value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 // ── HMAC hash secret validation ──
 
 const HASH_SECRET = process.env.HASH_SECRET || "";
@@ -180,5 +241,274 @@ export const markOfflineDevices = db.prepare(`
 export const cleanupOldActivities = db.prepare(`
   DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
 `);
+
+const getExternalDashboardsStmt = db.prepare(`
+  SELECT id, name, url, description
+  FROM external_dashboards
+  ORDER BY created_at ASC
+`);
+
+const upsertExternalDashboardStmt = db.prepare(`
+  INSERT INTO external_dashboards (id, name, url, description, created_at, updated_at)
+  VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+  ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    url = excluded.url,
+    description = excluded.description,
+    updated_at = datetime('now')
+`);
+
+const deleteExternalDashboardStmt = db.prepare(`
+  DELETE FROM external_dashboards
+  WHERE id = ?
+`);
+
+const getHiddenExternalDashboardIdsStmt = db.prepare(`
+  SELECT id
+  FROM hidden_external_dashboards
+`);
+
+const hideExternalDashboardStmt = db.prepare(`
+  INSERT INTO hidden_external_dashboards (id, hidden_at)
+  VALUES (?, datetime('now'))
+  ON CONFLICT(id) DO UPDATE SET
+    hidden_at = datetime('now')
+`);
+
+const unhideExternalDashboardStmt = db.prepare(`
+  DELETE FROM hidden_external_dashboards
+  WHERE id = ?
+`);
+
+const getRuntimeDeviceConfigsStmt = db.prepare(`
+  SELECT token, device_id, device_name, platform
+  FROM runtime_device_configs
+  ORDER BY device_id ASC
+`);
+
+const deleteRuntimeDeviceByTokenForOtherDeviceStmt = db.prepare(`
+  DELETE FROM runtime_device_configs
+  WHERE token = ? AND device_id <> ?
+`);
+
+const upsertRuntimeDeviceConfigStmt = db.prepare(`
+  INSERT INTO runtime_device_configs (token, device_id, device_name, platform, updated_at)
+  VALUES (?, ?, ?, ?, datetime('now'))
+  ON CONFLICT(device_id) DO UPDATE SET
+    token = excluded.token,
+    device_name = excluded.device_name,
+    platform = excluded.platform,
+    updated_at = datetime('now')
+`);
+
+const deleteRuntimeDeviceConfigStmt = db.prepare(`
+  DELETE FROM runtime_device_configs
+  WHERE device_id = ?
+`);
+
+const getRuntimeSiteSettingsStmt = db.prepare(`
+  SELECT setting_key, setting_value
+  FROM runtime_site_settings
+`);
+
+const upsertRuntimeSiteSettingStmt = db.prepare(`
+  INSERT INTO runtime_site_settings (setting_key, setting_value, updated_at)
+  VALUES (?, ?, datetime('now'))
+  ON CONFLICT(setting_key) DO UPDATE SET
+    setting_value = excluded.setting_value,
+    updated_at = datetime('now')
+`);
+
+const deleteRuntimeSiteSettingStmt = db.prepare(`
+  DELETE FROM runtime_site_settings
+  WHERE setting_key = ?
+`);
+
+export type ExternalDashboardRecord = {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+};
+
+export type RuntimeDeviceConfigRecord = {
+  token: string;
+  device_id: string;
+  device_name: string;
+  platform: string;
+};
+
+export function getExternalDashboards(): ExternalDashboardRecord[] {
+  return getExternalDashboardsStmt.all() as ExternalDashboardRecord[];
+}
+
+export function upsertExternalDashboard(record: ExternalDashboardRecord): void {
+  upsertExternalDashboardStmt.run(
+    record.id,
+    record.name,
+    record.url,
+    record.description ?? "",
+  );
+  unhideExternalDashboardStmt.run(record.id);
+}
+
+export function deleteExternalDashboard(id: string): number {
+  return deleteExternalDashboardStmt.run(id).changes;
+}
+
+export function getHiddenExternalDashboardIds(): string[] {
+  const rows = getHiddenExternalDashboardIdsStmt.all() as { id: string }[];
+  return rows.map((row) => row.id);
+}
+
+export function hideExternalDashboard(id: string): void {
+  hideExternalDashboardStmt.run(id);
+}
+
+export function getRuntimeDeviceConfigs(): RuntimeDeviceConfigRecord[] {
+  return getRuntimeDeviceConfigsStmt.all() as RuntimeDeviceConfigRecord[];
+}
+
+export function upsertRuntimeDeviceConfig(record: RuntimeDeviceConfigRecord): void {
+  const tx = db.transaction((input: RuntimeDeviceConfigRecord) => {
+    deleteRuntimeDeviceByTokenForOtherDeviceStmt.run(input.token, input.device_id);
+    upsertRuntimeDeviceConfigStmt.run(
+      input.token,
+      input.device_id,
+      input.device_name,
+      input.platform,
+    );
+  });
+
+  tx(record);
+}
+
+export function deleteRuntimeDeviceConfig(deviceId: string): number {
+  return deleteRuntimeDeviceConfigStmt.run(deviceId).changes;
+}
+
+export function getRuntimeSiteSettings(): Record<string, string> {
+  const rows = getRuntimeSiteSettingsStmt.all() as {
+    setting_key: string;
+    setting_value: string;
+  }[];
+
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.setting_key] = row.setting_value;
+  }
+  return result;
+}
+
+export function upsertRuntimeSiteSetting(key: string, value: string): void {
+  upsertRuntimeSiteSettingStmt.run(key, value);
+}
+
+export function deleteRuntimeSiteSetting(key: string): void {
+  deleteRuntimeSiteSettingStmt.run(key);
+}
+
+export const upsertDeviceConsent = db.prepare(`
+  INSERT INTO device_consents (
+    device_id,
+    consent_version,
+    activity_reporting,
+    health_reporting,
+    granted_scopes,
+    granted_at,
+    updated_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(device_id) DO UPDATE SET
+    consent_version = excluded.consent_version,
+    activity_reporting = excluded.activity_reporting,
+    health_reporting = excluded.health_reporting,
+    granted_scopes = excluded.granted_scopes,
+    granted_at = excluded.granted_at,
+    updated_at = excluded.updated_at
+`);
+
+const getDeviceConsentById = db.prepare(`
+  SELECT
+    device_id,
+    consent_version,
+    activity_reporting,
+    health_reporting,
+    granted_scopes,
+    granted_at,
+    updated_at
+  FROM device_consents
+  WHERE device_id = ?
+  LIMIT 1
+`);
+
+type DeviceConsentRow = {
+  device_id: string;
+  consent_version: number;
+  activity_reporting: number;
+  health_reporting: number;
+  granted_scopes: string;
+  granted_at: string;
+  updated_at: string;
+};
+
+const REQUIRE_EXPLICIT_CONSENT = /^(1|true|yes)$/i.test(
+  process.env.REQUIRE_EXPLICIT_CONSENT || ""
+);
+
+export function isExplicitConsentRequired(): boolean {
+  return REQUIRE_EXPLICIT_CONSENT;
+}
+
+export function getDeviceConsent(deviceId: string): DeviceConsentRow | null {
+  return (getDeviceConsentById.get(deviceId) as DeviceConsentRow | undefined) || null;
+}
+
+export function canReportActivity(deviceId: string): boolean {
+  if (!REQUIRE_EXPLICIT_CONSENT) return true;
+  const consent = getDeviceConsent(deviceId);
+  return !!consent && consent.activity_reporting === 1;
+}
+
+export function canReportHealth(deviceId: string): boolean {
+  if (!REQUIRE_EXPLICIT_CONSENT) return true;
+  const consent = getDeviceConsent(deviceId);
+  return !!consent && consent.health_reporting === 1;
+}
+
+export function cleanupUnconfiguredDeviceData(allowedDeviceIds: string[]): {
+  deviceStatesDeleted: number;
+  activitiesDeleted: number;
+  healthRecordsDeleted: number;
+} {
+  if (allowedDeviceIds.length === 0) {
+    return {
+      deviceStatesDeleted: 0,
+      activitiesDeleted: 0,
+      healthRecordsDeleted: 0,
+    };
+  }
+
+  const placeholders = allowedDeviceIds.map(() => "?").join(", ");
+
+  const deleteDeviceStates = db.prepare(
+    `DELETE FROM device_states WHERE device_id NOT IN (${placeholders})`
+  );
+  const deleteActivities = db.prepare(
+    `DELETE FROM activities WHERE device_id NOT IN (${placeholders})`
+  );
+  const deleteHealthRecords = db.prepare(
+    `DELETE FROM health_records WHERE device_id NOT IN (${placeholders})`
+  );
+
+  const tx = db.transaction((ids: string[]) => {
+    const deviceStatesDeleted = deleteDeviceStates.run(...ids).changes;
+    const activitiesDeleted = deleteActivities.run(...ids).changes;
+    const healthRecordsDeleted = deleteHealthRecords.run(...ids).changes;
+    return { deviceStatesDeleted, activitiesDeleted, healthRecordsDeleted };
+  });
+
+  return tx(allowedDeviceIds);
+}
 
 export default db;

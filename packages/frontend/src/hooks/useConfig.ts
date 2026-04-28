@@ -11,6 +11,7 @@ const serverRenderConfig: SiteConfig = {
   siteTitle: "__LIVE_DASHBOARD_SITE_TITLE__",
   siteDescription: "__LIVE_DASHBOARD_SITE_DESCRIPTION__",
   siteFavicon: "/__LIVE_DASHBOARD_SITE_FAVICON__",
+  dashboards: defaultConfig.dashboards,
 };
 
 function readDocumentValue(value: string | null | undefined, fallback: string): string {

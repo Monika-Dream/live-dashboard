@@ -1,0 +1,4 @@
+D:\live-dashboard-main\packages\windows-agent\publish\win-x64\WindowsAgent.exe
+D:\live-dashboard-main\packages\windows-agent\publish\win-x64\WindowsAgent.dll
+D:\live-dashboard-main\packages\windows-agent\publish\win-x64\WindowsAgent.deps.json
+D:\live-dashboard-main\packages\windows-agent\publish\win-x64\WindowsAgent.runtimeconfig.json

@@ -4,15 +4,18 @@ import { useConfig } from "@/hooks/useConfig";
 
 interface Props {
   device: DeviceState | undefined;
+  displayName?: string;
 }
 
-export default function CurrentStatus({ device }: Props) {
-  const { displayName } = useConfig();
+export default function CurrentStatus({ device, displayName: displayNameProp }: Props) {
+  const { displayName: configDisplayName } = useConfig();
+  const displayName = displayNameProp ?? configDisplayName;
   const active = device?.is_online === 1 ? device : undefined;
 
   const isOnline = !!active;
+  const customDescription = active?.extra?.custom_description?.trim();
   const description = active
-    ? getAppDescription(active.app_name, active.display_title, active.extra?.music)
+    ? (customDescription || getAppDescription(active.app_name, active.display_title, active.extra?.music))
     : null;
 
   // Battery info from the active device
