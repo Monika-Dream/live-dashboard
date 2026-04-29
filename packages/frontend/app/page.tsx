@@ -192,7 +192,7 @@ function HomeInner({
       setAdminStatus("正在保存设备配置...");
       const devices = await upsertAdminDeviceConfig(payload, adminToken.trim());
       setAdminDevices(devices);
-      setAdminStatus("设备 token/名称已更新");
+      setAdminStatus("主面板设备已添加/更新（未上报时会显示离线）");
     } catch (error) {
       const message = error instanceof Error ? error.message : "请检查 Token";
       setAdminStatus(`设备配置保存失败：${message}`);
@@ -209,7 +209,7 @@ function HomeInner({
       setAdminStatus("正在删除运行时设备覆盖...");
       const devices = await removeAdminDeviceConfig(deviceId, adminToken.trim());
       setAdminDevices(devices);
-      setAdminStatus("运行时设备覆盖已删除");
+      setAdminStatus("主面板设备覆盖已删除");
     } catch (error) {
       const message = error instanceof Error ? error.message : "请检查 Token";
       setAdminStatus(`删除失败：${message}`);
@@ -751,7 +751,7 @@ function DashboardAdminPanel({
             多人面板管理
           </p>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            网页直接管理面板、设备 token/名称、网页名称（需要管理密码）
+            网页直接管理面板、主面板设备、网页名称（需要管理密码）
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -919,7 +919,10 @@ function DashboardAdminPanel({
 
               <div className="separator-dashed my-3" />
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-2">
-                设备 Token 与名称
+                主面板设备（Token 与名称）
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                新增后会立刻出现在主面板。设备尚未上报时，会先显示为离线。
               </p>
 
               <div className="grid gap-2 md:grid-cols-2">
@@ -965,7 +968,7 @@ function DashboardAdminPanel({
                   }}
                   className="pill-btn text-xs px-3 py-1"
                 >
-                  保存设备配置
+                  添加 / 更新主面板设备
                 </button>
                 <button
                   type="button"
@@ -1005,7 +1008,7 @@ function DashboardAdminPanel({
                             onClick={() => onDeleteDevice(device.device_id)}
                             className="pill-btn text-xs px-2 py-1"
                           >
-                            删除覆盖
+                            删除主面板设备
                           </button>
                         )}
                       </div>
