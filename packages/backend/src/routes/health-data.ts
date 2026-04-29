@@ -1,5 +1,5 @@
-import { authenticateToken } from "../middleware/auth";
-import { db } from "../db";
+import { authenticateToken, isConfiguredDeviceId } from "../middleware/auth";
+import { canReportHealth, db } from "../db";
 import type { HealthRecord } from "../types";
 
 const MAX_RECORDS_PER_REQUEST = 500;
@@ -32,6 +32,13 @@ export async function handleHealthData(req: Request): Promise<Response> {
   const device = authenticateToken(req.headers.get("authorization"));
   if (!device) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!canReportHealth(device.device_id)) {
+    return Response.json(
+      { error: "Consent required: health_reporting" },
+      { status: 403 }
+    );
   }
 
   let body: any;
@@ -101,6 +108,10 @@ export function handleHealthDataQuery(url: URL): Response {
     return Response.json({ error: "date parameter required (YYYY-MM-DD)" }, { status: 400 });
   }
 
+  if (deviceId && !isConfiguredDeviceId(deviceId)) {
+    return Response.json({ date, records: [] });
+  }
+
   // Accept timezone offset in minutes (e.g. -480 for UTC+8), same as /api/timeline
   const tzParam = url.searchParams.get("tz");
   const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
@@ -131,6 +142,8 @@ export function handleHealthDataQuery(url: URL): Response {
         `).all(date) as HealthRecord[];
       }
 
+      records = records.filter((record) => isConfiguredDeviceId(record.device_id));
+
       return Response.json({ date, records });
     }
 
@@ -159,6 +172,8 @@ export function handleHealthDataQuery(url: URL): Response {
         ORDER BY recorded_at ASC
       `).all(startOfDay, startOfNextDay) as HealthRecord[];
     }
+
+    records = records.filter((record) => isConfiguredDeviceId(record.device_id));
 
     return Response.json({ date, records });
   } catch (e: any) {

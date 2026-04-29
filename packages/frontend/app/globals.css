@@ -339,6 +339,69 @@ body.night-mode .status-pointer::after {
   border-top-color: var(--color-border);
 }
 
+.panel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed var(--color-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--color-text);
+  padding: 8px 12px;
+  font-size: 12px;
+  transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.panel-chip:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.panel-chip-active {
+  background: var(--color-card);
+  border-color: var(--color-primary);
+  box-shadow: 0 8px 18px rgba(232, 160, 191, 0.16);
+}
+
+.dashboard-overview-card {
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 240, 243, 0.92)),
+    var(--color-card);
+  padding: 16px;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.dashboard-overview-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+  box-shadow: 0 16px 30px rgba(232, 160, 191, 0.16);
+}
+
+.dashboard-overview-card-active {
+  border-color: var(--color-primary);
+  box-shadow: 0 18px 32px rgba(232, 160, 191, 0.22);
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-pill-online {
+  background: rgba(136, 201, 201, 0.16);
+  color: #2f7f7f;
+}
+
+.status-pill-offline {
+  background: rgba(232, 160, 191, 0.14);
+  color: #a45c79;
+}
 /* === CurrentStatus — VN台词框 with cat ears === */
 .status-bubble {
   position: relative;

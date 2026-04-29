@@ -4,6 +4,7 @@ import {
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
 import { db } from "../db";
+import { isConfiguredDeviceId } from "../middleware/auth";
 
 export function handleTimeline(url: URL): Response {
   const date = url.searchParams.get("date");
@@ -19,6 +20,10 @@ export function handleTimeline(url: URL): Response {
   const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
 
   const deviceId = url.searchParams.get("device_id");
+
+  if (deviceId && !isConfiguredDeviceId(deviceId)) {
+    return Response.json({ date, segments: [], summary: {} });
+  }
 
   let activities: ActivityRecord[];
 
@@ -44,6 +49,8 @@ export function handleTimeline(url: URL): Response {
       ? (getTimelineByDateAndDevice.all(date, deviceId) as ActivityRecord[])
       : (getTimelineByDate.all(date) as ActivityRecord[]);
   }
+
+  activities = activities.filter((activity) => isConfiguredDeviceId(activity.device_id));
 
   // Build timeline segments with duration
   // Gap threshold: if time between two consecutive activities exceeds this,

@@ -3,17 +3,27 @@ services:
     build: .
     container_name: live_dashboard
     restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "3001:3001"
     environment:
       - PORT=3000
+      - ADMIN_PORT=3001
       - STATIC_DIR=/app/public
+      - ADMIN_STATIC_DIR=/app/admin-public
       - DB_PATH=/data/live-dashboard.db
       - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
       - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
+      - DEVICE_TOKEN_3=${DEVICE_TOKEN_3:-}
+      - DEVICE_TOKEN_4=${DEVICE_TOKEN_4:-}
       - HASH_SECRET=${HASH_SECRET}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - DISPLAY_NAME=${DISPLAY_NAME}
       - SITE_TITLE=${SITE_TITLE}
       - SITE_DESC=${SITE_DESC}
       - SITE_FAVICON=${SITE_FAVICON}
+      - EXTERNAL_DASHBOARDS=${EXTERNAL_DASHBOARDS}
     volumes:
       - dashboard_data:/data
     networks:

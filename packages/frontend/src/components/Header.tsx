@@ -13,10 +13,12 @@ function getGreeting(): { kaomoji: string; text: string } {
 interface HeaderProps {
   serverTime?: string;
   viewerCount?: number;
+  displayName?: string;
 }
 
-export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
-  const { displayName } = useConfig();
+export default function Header({ serverTime, viewerCount = 0, displayName: displayNameProp }: HeaderProps) {
+  const { displayName: configDisplayName } = useConfig();
+  const displayName = displayNameProp ?? configDisplayName;
   const timeStr = (() => {
     if (!serverTime) return "--:--";
     const d = new Date(serverTime);
@@ -36,7 +38,7 @@ export default function Header({ serverTime, viewerCount = 0 }: HeaderProps) {
           </h1>
           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
             <span className="mr-1">{greeting.kaomoji}</span>
-            {greeting.text}
+            {greeting.text} 这里可以切换查看不同人的实时面板。
           </p>
         </div>
 

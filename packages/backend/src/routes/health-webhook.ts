@@ -1,5 +1,5 @@
 import { authenticateToken } from "../middleware/auth";
-import { db } from "../db";
+import { canReportHealth, db } from "../db";
 
 /**
  * Accepts health data in the format sent by health-connect-webhook
@@ -56,6 +56,13 @@ export async function handleHealthWebhook(req: Request): Promise<Response> {
   const device = authenticateToken(req.headers.get("authorization"));
   if (!device) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!canReportHealth(device.device_id)) {
+    return Response.json(
+      { error: "Consent required: health_reporting" },
+      { status: 403 }
+    );
   }
 
   let body: any;
