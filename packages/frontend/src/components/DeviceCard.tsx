@@ -30,6 +30,8 @@ export default function DeviceCard({ device, selected, onSelect }: DeviceCardPro
   const icon = platformIcons[device.platform] || "\u{1F4BB}";
   const battery = device.extra;
   const hasBattery = battery && typeof battery.battery_percent === "number";
+  const mode = device.extra?.device?.capability_mode;
+  const vpnActive = device.extra?.device?.vpn_active;
 
   return (
     <div
@@ -52,6 +54,8 @@ export default function DeviceCard({ device, selected, onSelect }: DeviceCardPro
         </div>
         <span className="text-[10px] text-[var(--color-text-muted)]">
           {isOnline ? timeAgo(device.last_seen_at) : "offline"}
+          {mode && ` · ${mode}`}
+          {vpnActive && " · VPN"}
         </span>
       </div>
       <span className="text-xs flex-shrink-0" title={isOnline ? "Online" : "Offline"}>

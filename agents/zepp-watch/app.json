@@ -1,0 +1,51 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 2330101,
+    "appName": "LiveDashboard",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "0.1.0"
+    },
+    "vender": "live-dashboard",
+    "description": "Low-power Live Dashboard companion"
+  },
+  "permissions": [
+    "data:os.device.info",
+    "data:user.hd.heart_rate"
+  ],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "1.0",
+      "target": "1.0",
+      "minVersion": "3.0"
+    }
+  },
+  "debug": false,
+  "targets": {
+    "common": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/common/home/index.page"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        }
+      },
+      "platforms": [
+        { "st": "r" },
+        { "st": "s" },
+        { "st": "b" }
+      ],
+      "designWidth": 480
+    }
+  },
+  "i18n": {
+    "en-US": { "appName": "Live Dashboard" },
+    "zh-CN": { "appName": "Live Dashboard" }
+  },
+  "defaultLanguage": "zh-CN"
+}

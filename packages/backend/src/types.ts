@@ -11,6 +11,40 @@ export interface ReportPayload {
   extra?: {
     battery_percent?: number;
     battery_charging?: boolean;
+    device?: {
+      network_connected?: boolean;
+      vpn_active?: boolean;
+      vpn_name?: string;
+      capability_mode?: "normal" | "root" | "lsposed";
+      last_sample_at?: string;
+    };
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      accuracy_m?: number;
+      provider?: string;
+      recorded_at?: string;
+    };
+    foreground?: {
+      package_name?: string;
+      app_name?: string;
+      activity?: string;
+      source?: "normal" | "root" | "lsposed";
+      confidence?: number;
+    };
+    input?: {
+      input_active?: boolean;
+      is_typing?: boolean;
+      source?: "normal" | "root" | "lsposed";
+    };
+    media?: {
+      playing?: boolean;
+      title?: string;
+      artist?: string;
+      app?: string;
+      state?: string;
+      source?: "normal" | "root" | "lsposed";
+    };
   };
 }
 
@@ -58,4 +92,13 @@ export interface HealthRecord {
   unit: string;
   recorded_at: string;
   end_time: string;
+}
+
+export interface LocationRecord {
+  device_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  provider: string;
+  recorded_at: string;
 }

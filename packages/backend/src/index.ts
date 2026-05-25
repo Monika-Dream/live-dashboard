@@ -8,6 +8,14 @@ import { handleHealth } from "./routes/health";
 import { handleHealthData, handleHealthDataQuery } from "./routes/health-data";
 import { handleHealthWebhook } from "./routes/health-webhook";
 import { handleConfig } from "./routes/config";
+import { handleLocationQuery } from "./routes/location";
+import {
+  getWsInfo,
+  handleDeviceMessages,
+  handleDeviceMessageReply,
+  realtimeWebSocket,
+  type WsData,
+} from "./services/realtime";
 import { injectSiteConfig } from "./services/site-config";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
@@ -42,7 +50,7 @@ async function serveStaticFile(realFile: string): Promise<Response> {
   return new Response(Bun.file(realFile));
 }
 
-const server = Bun.serve({
+const server = Bun.serve<WsData>({
   port: LISTEN_PORT,
   async fetch(req) {
     const url = new URL(req.url);
@@ -64,7 +72,14 @@ const server = Bun.serve({
     let response: Response;
 
     try {
-      if (pathname === "/api/report" && req.method === "POST") {
+      if (pathname === "/api/ws") {
+        const wsInfo = getWsInfo(req);
+        if (wsInfo instanceof Response) return wsInfo;
+        if (server.upgrade(req, { data: wsInfo })) {
+          return undefined;
+        }
+        return Response.json({ error: "WebSocket upgrade failed" }, { status: 400 });
+      } else if (pathname === "/api/report" && req.method === "POST") {
         response = await handleReport(req);
       } else if (pathname === "/api/current" && req.method === "GET") {
         const clientIp =
@@ -85,6 +100,12 @@ const server = Bun.serve({
         response = await handleHealthWebhook(req);
       } else if (pathname === "/api/config" && req.method === "GET") {
         response = handleConfig();
+      } else if (pathname === "/api/location" && req.method === "GET") {
+        response = handleLocationQuery(url);
+      } else if (pathname === "/api/messages" && req.method === "GET") {
+        response = handleDeviceMessages(req);
+      } else if (pathname === "/api/messages/reply" && req.method === "POST") {
+        response = await handleDeviceMessageReply(req);
       } else if (!pathname.startsWith("/api/")) {
         // Static file serving disabled if directory doesn't exist
         if (!staticEnabled) {
@@ -148,6 +169,7 @@ const server = Bun.serve({
 
     return response;
   },
+  websocket: realtimeWebSocket,
 });
 
 console.log(`[server] Live Dashboard backend running on http://localhost:${server.port}`);

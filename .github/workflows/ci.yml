@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: ["codex/**", "main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install frontend dependencies
+        working-directory: packages/frontend
+        run: bun install --frozen-lockfile
+      - name: Build frontend
+        working-directory: packages/frontend
+        run: bun run build
+      - name: Install backend dependencies
+        working-directory: packages/backend
+        run: bun install --frozen-lockfile
+      - name: Typecheck backend
+        working-directory: packages/backend
+        run: bunx tsc --noEmit
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Build Android debug APK
+        working-directory: agents/android-app
+        run: ./gradlew assembleDebug --stacktrace

@@ -113,6 +113,51 @@ db.run(`
   ON health_records(type, recorded_at)
 `);
 
+// ── Location records table ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS location_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    accuracy_m REAL DEFAULT NULL,
+    provider TEXT DEFAULT '',
+    recorded_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_location_records_device_recorded
+  ON location_records(device_id, recorded_at)
+`);
+
+db.run(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_location_records_dedup
+  ON location_records(device_id, recorded_at)
+`);
+
+// ── Short-lived viewer -> device messages ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS device_messages (
+    id TEXT PRIMARY KEY,
+    device_id TEXT NOT NULL,
+    viewer_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL,
+    delivered_at TEXT DEFAULT '',
+    replied_at TEXT DEFAULT ''
+  )
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_device_messages_pending
+  ON device_messages(device_id, delivered_at, expires_at)
+`);
+
 // ── HMAC hash secret validation ──
 
 const HASH_SECRET = process.env.HASH_SECRET || "";
@@ -179,6 +224,20 @@ export const markOfflineDevices = db.prepare(`
 
 export const cleanupOldActivities = db.prepare(`
   DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
+`);
+
+export const cleanupExpiredMessages = db.prepare(`
+  DELETE FROM device_messages WHERE datetime(expires_at) < datetime('now')
+`);
+
+export const insertLocationRecord = db.prepare(`
+  INSERT INTO location_records (device_id, latitude, longitude, accuracy_m, provider, recorded_at)
+  VALUES (?, ?, ?, ?, ?, ?)
+  ON CONFLICT(device_id, recorded_at) DO NOTHING
+`);
+
+export const cleanupOldLocations = db.prepare(`
+  DELETE FROM location_records WHERE created_at < datetime('now', '-30 days')
 `);
 
 export default db;

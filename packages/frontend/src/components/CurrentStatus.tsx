@@ -12,7 +12,7 @@ export default function CurrentStatus({ device }: Props) {
 
   const isOnline = !!active;
   const description = active
-    ? getAppDescription(active.app_name, active.display_title, active.extra?.music)
+    ? getAppDescription(active.extra?.foreground?.app_name || active.app_name, active.display_title, active.extra?.music)
     : null;
 
   // Battery info from the active device
@@ -21,11 +21,19 @@ export default function CurrentStatus({ device }: Props) {
 
   // Music info — show standalone ♪ line, description should not duplicate it
   const music = active?.extra?.music;
+  const media = active?.extra?.media;
   const musicText = music?.title
     ? music.artist
       ? `${music.artist} - ${music.title}`
       : music.title
     : null;
+  const mediaText = media?.playing && media.title
+    ? media.artist
+      ? `${media.artist} - ${media.title}`
+      : media.title
+    : null;
+  const inputActive = active?.extra?.input?.input_active || active?.extra?.input?.is_typing;
+  const vpnActive = active?.extra?.device?.vpn_active;
 
   return (
     <div className="status-bubble mb-6">
@@ -45,9 +53,19 @@ export default function CurrentStatus({ device }: Props) {
             <p className="text-lg font-bold font-[var(--font-jp)] text-[var(--color-primary)] leading-relaxed status-text">
               {description}
             </p>
-            {musicText && (
+            {(musicText || mediaText) && (
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                ♪ 正在听：{musicText}
+                ♪ 正在听：{musicText || mediaText}
+              </p>
+            )}
+            {inputActive && (
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                正在输入中
+              </p>
+            )}
+            {vpnActive && (
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                VPN 已连接
               </p>
             )}
             {hasBattery && battery && (

@@ -1,4 +1,4 @@
-import type { TimelineSegment } from "@/lib/api";
+import type { LocationRecord, TimelineSegment } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 
 // Warm color palette
@@ -35,9 +35,10 @@ interface Props {
   segments: TimelineSegment[];
   summary: Record<string, Record<string, number>>;
   currentAppByDevice: Record<string, string>; // device_id -> current app_name
+  locations?: LocationRecord[];
 }
 
-export default function Timeline({ segments, summary, currentAppByDevice }: Props) {
+export default function Timeline({ segments, summary, currentAppByDevice, locations = [] }: Props) {
   const colorMap = new Map<string, string>();
 
   if (segments.length === 0) {
@@ -115,6 +116,8 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
               {name}
             </h3>
 
+            <LocationTimeline locations={locations.filter((loc) => loc.device_id === deviceId)} />
+
             <div className="max-h-[400px] overflow-y-auto pr-1 timeline-scroll">
               <div className="space-y-1">
                 {sorted.map((app) => {
@@ -162,6 +165,46 @@ export default function Timeline({ segments, summary, currentAppByDevice }: Prop
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function LocationTimeline({ locations }: { locations: LocationRecord[] }) {
+  if (locations.length === 0) return null;
+  const recent = [...locations]
+    .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+    .slice(0, 8)
+    .reverse();
+
+  return (
+    <div className="mb-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+      <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+        位置时间轴
+      </div>
+      <div className="space-y-1">
+        {recent.map((loc) => {
+          const t = new Date(loc.recorded_at);
+          const time = isNaN(t.getTime())
+            ? "--:--"
+            : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+          const mapsUrl = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
+          return (
+            <a
+              key={`${loc.device_id}-${loc.recorded_at}`}
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-3 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+            >
+              <span className="font-mono">{time}</span>
+              <span className="truncate">
+                {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+                {typeof loc.accuracy_m === "number" ? ` · ±${Math.round(loc.accuracy_m)}m` : ""}
+              </span>
+            </a>
+          );
+        })}
+      </div>
     </div>
   );
 }

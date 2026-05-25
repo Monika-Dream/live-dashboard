@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useConfig, useConfigLoader, ConfigContext } from "@/hooks/useConfig";
-import type { DeviceState } from "@/lib/api";
-import { fetchHealthData } from "@/lib/api";
+import type { DeviceState, LocationRecord } from "@/lib/api";
+import { fetchHealthData, fetchLocationData } from "@/lib/api";
 import Header from "@/components/Header";
 import CurrentStatus from "@/components/CurrentStatus";
 import DeviceCard from "@/components/DeviceCard";
@@ -12,6 +12,7 @@ import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
 import HealthData from "@/components/HealthData";
 import SiteMetadataSync from "@/components/SiteMetadataSync";
+import VisitorMessages from "@/components/VisitorMessages";
 
 export default function Home() {
   const config = useConfigLoader();
@@ -36,6 +37,7 @@ function HomeInner() {
 
   // Check if health data exists for the selected date
   const [hasHealthData, setHasHealthData] = useState(false);
+  const [locationRecords, setLocationRecords] = useState<LocationRecord[]>([]);
 
   // Reset tab to activity if health data disappears
   useEffect(() => {
@@ -95,6 +97,22 @@ function HomeInner() {
       })
       .catch(() => {
         if (!controller.signal.aborted) setHasHealthData(false);
+      });
+    return () => controller.abort();
+  }, [selectedDate, selectedDeviceIdResolved]);
+
+  useEffect(() => {
+    if (!selectedDate || !selectedDeviceIdResolved) {
+      setLocationRecords([]);
+      return;
+    }
+    const controller = new AbortController();
+    fetchLocationData(selectedDate, controller.signal, selectedDeviceIdResolved)
+      .then((d) => {
+        if (!controller.signal.aborted) setLocationRecords(d.records ?? []);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setLocationRecords([]);
       });
     return () => controller.abort();
   }, [selectedDate, selectedDeviceIdResolved]);
@@ -174,6 +192,7 @@ function HomeInner() {
                   />
                 ))
               )}
+              <VisitorMessages device={selectedDevice} />
             </div>
 
             {/* Right: timeline + health (wide) */}
@@ -223,6 +242,7 @@ function HomeInner() {
                         segments={filteredTimeline.segments}
                         summary={filteredTimeline.summary}
                         currentAppByDevice={currentAppByDevice}
+                        locations={locationRecords}
                       />
                     </div>
                   ) : filteredTimeline ? (
@@ -230,6 +250,7 @@ function HomeInner() {
                       segments={filteredTimeline.segments}
                       summary={filteredTimeline.summary}
                       currentAppByDevice={currentAppByDevice}
+                      locations={locationRecords}
                     />
                   ) : null}
                 </>

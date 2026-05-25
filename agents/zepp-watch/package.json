@@ -1,0 +1,9 @@
+{
+  "name": "live-dashboard-zepp-watch",
+  "version": "0.1.0",
+  "private": true,
+  "zeppos": true,
+  "dependencies": {
+    "@zeppos/zml": "^0.0.41"
+  }
+}

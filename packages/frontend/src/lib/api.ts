@@ -12,6 +12,34 @@ export interface DeviceState {
   extra?: {
     battery_percent?: number;
     battery_charging?: boolean;
+    device?: {
+      network_connected?: boolean;
+      vpn_active?: boolean;
+      vpn_name?: string;
+      capability_mode?: "normal" | "root" | "lsposed";
+      last_sample_at?: string;
+    };
+    location?: LocationRecord;
+    foreground?: {
+      package_name?: string;
+      app_name?: string;
+      activity?: string;
+      source?: "normal" | "root" | "lsposed";
+      confidence?: number;
+    };
+    input?: {
+      input_active?: boolean;
+      is_typing?: boolean;
+      source?: "normal" | "root" | "lsposed";
+    };
+    media?: {
+      playing?: boolean;
+      title?: string;
+      artist?: string;
+      app?: string;
+      state?: string;
+      source?: "normal" | "root" | "lsposed";
+    };
     music?: {
       title?: string;
       artist?: string;
@@ -84,6 +112,20 @@ export interface HealthDataResponse {
   records: HealthRecord[];
 }
 
+export interface LocationRecord {
+  device_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  provider: string;
+  recorded_at: string;
+}
+
+export interface LocationDataResponse {
+  date: string;
+  records: LocationRecord[];
+}
+
 // Site config
 export interface SiteConfig {
   displayName: string;
@@ -144,4 +186,21 @@ export async function fetchHealthData(date: string, signal?: AbortSignal, device
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export async function fetchLocationData(date: string, signal?: AbortSignal, deviceId?: string): Promise<LocationDataResponse> {
+  const tz = new Date().getTimezoneOffset();
+  let url = `${API_BASE}/api/location?date=${encodeURIComponent(date)}&tz=${tz}`;
+  if (deviceId) url += `&device_id=${encodeURIComponent(deviceId)}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export function getRealtimeUrl(): string {
+  const base = API_BASE || (typeof window !== "undefined" ? window.location.origin : "");
+  const url = new URL("/api/ws?role=viewer", base || "http://localhost");
+  if (url.protocol === "https:") url.protocol = "wss:";
+  else url.protocol = "ws:";
+  return url.toString();
 }
