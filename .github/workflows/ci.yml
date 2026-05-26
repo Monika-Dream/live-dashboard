@@ -26,7 +26,13 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Check backend bundle
         working-directory: packages/backend
-        run: bun build src/index.ts --target=bun --outfile /tmp/live-dashboard-backend.js
+        run: mkdir -p dist && bun build src/index.ts --target=bun --outfile dist/live-dashboard-backend.js
+      - name: Upload backend CI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-bundle
+          path: packages/backend/dist/live-dashboard-backend.js
+          retention-days: 14
 
   android:
     runs-on: ubuntu-latest
@@ -36,7 +42,30 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - name: Build Android debug APK
         working-directory: agents/android-app
         run: ./gradlew assembleDebug --stacktrace
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: agents/android-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Android build reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: |
+            agents/android-app/**/build/reports/**
+            agents/android-app/**/build/outputs/logs/**
+          if-no-files-found: ignore
+          retention-days: 14
