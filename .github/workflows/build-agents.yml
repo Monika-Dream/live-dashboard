@@ -12,6 +12,9 @@ on:
         description: 'macOS source branch/tag/SHA (default: macos-source)'
         default: 'macos-source'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Architecture: Agent source code lives on dedicated branches (windows-source,
 # macos-source), not on main. Tag-triggered builds checkout the latest HEAD of
 # each source branch. For reproducible builds, use workflow_dispatch with
@@ -23,10 +26,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.windows_ref || 'windows-source' }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -34,7 +37,7 @@ jobs:
       - name: Build executable
         working-directory: agents/windows
         run: pyinstaller --onefile --noconsole --name live-dashboard-agent agent.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows-agent
           path: agents/windows/dist/live-dashboard-agent.exe
@@ -44,10 +47,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.macos_ref || 'macos-source' }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -55,7 +58,7 @@ jobs:
       - name: Build executable
         working-directory: agents/macos
         run: pyinstaller --onefile --windowed --name live-dashboard-agent agent.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: macos-agent
           path: agents/macos/dist/live-dashboard-agent
@@ -67,11 +70,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windows-agent
           path: windows-agent
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: macos-agent
           path: macos-agent
@@ -79,7 +82,7 @@ jobs:
         run: |
           mv windows-agent/live-dashboard-agent.exe .
           cd macos-agent && zip ../live-dashboard-agent-macos.zip * && cd ..
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             live-dashboard-agent.exe
