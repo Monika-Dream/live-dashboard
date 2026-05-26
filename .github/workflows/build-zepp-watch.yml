@@ -34,8 +34,8 @@ jobs:
         run: |
           pwd
           find . -maxdepth 4 -type f | sort
-          file icon.png assets/common/icon.png
-          node -e "const fs=require('fs'); for (const p of ['app.json','icon.png','assets/common/icon.png']) console.log(p, fs.existsSync(p), fs.statSync(p).size)"
+          ls -la assets/common.r/icon.png assets/common.s/icon.png
+          node -e "const fs=require('fs'); for (const p of ['app.json','assets/common.r/icon.png','assets/common.s/icon.png']) console.log(p, fs.existsSync(p), fs.statSync(p).size)"
       - name: Inspect Zepp CLI icon validation
         run: |
           node - <<'NODE'

@@ -8,7 +8,7 @@
       "code": 1,
       "name": "0.1.0"
     },
-    "icon": "assets/common/icon.png",
+    "icon": "icon.png",
     "vender": "live-dashboard",
     "description": "Low-power Live Dashboard companion"
   },
