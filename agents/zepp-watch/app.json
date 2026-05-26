@@ -13,12 +13,13 @@
   },
   "permissions": [
     "data:os.device.info",
-    "data:user.hd.heart_rate"
+    "data:user.hd.heart_rate",
+    "device:os.local_storage"
   ],
   "runtime": {
     "apiVersion": {
-      "compatible": "1.0",
-      "target": "1.0",
+      "compatible": "3.0",
+      "target": "3.0",
       "minVersion": "3.0"
     }
   },
@@ -39,16 +40,15 @@
         }
       },
       "platforms": [
-        { "st": "r" },
-        { "st": "s" },
-        { "st": "b" }
-      ],
-      "designWidth": 480
+        { "st": "r", "dw": 480 },
+        { "st": "s", "dw": 390 },
+        { "st": "b", "dw": 480 }
+      ]
     }
   },
   "i18n": {
-    "en-US": { "appName": "Live Dashboard" },
-    "zh-CN": { "appName": "Live Dashboard" }
+    "en-US": { "name": "Live Dashboard" },
+    "zh-CN": { "name": "Live Dashboard" }
   },
   "defaultLanguage": "zh-CN"
 }
