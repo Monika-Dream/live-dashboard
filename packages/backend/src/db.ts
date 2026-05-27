@@ -174,7 +174,7 @@ export const markOfflineDevices = db.prepare(`
   UPDATE device_states SET is_online = 0
   WHERE is_online = 1
   AND (last_seen_at IS NULL OR last_seen_at = '' OR datetime(last_seen_at) IS NULL
-       OR datetime(last_seen_at) < datetime('now', '-1 minute'))
+       OR datetime(last_seen_at) < datetime('now', '-2 minutes'))
 `);
 
 export const cleanupOldActivities = db.prepare(`

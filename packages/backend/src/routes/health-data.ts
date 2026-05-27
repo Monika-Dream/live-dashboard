@@ -2,7 +2,7 @@ import { authenticateToken } from "../middleware/auth";
 import { db } from "../db";
 import type { HealthRecord } from "../types";
 
-const MAX_RECORDS_PER_REQUEST = 500;
+const MAX_RECORDS_PER_REQUEST = 1500; // supports full day of minute-level heart rate data (1440 max)
 const VALID_TYPES = new Set([
   "heart_rate", "resting_heart_rate", "heart_rate_variability",
   "steps", "distance", "exercise", "sleep",

@@ -12,6 +12,7 @@ import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
 import HealthData from "@/components/HealthData";
 import SiteMetadataSync from "@/components/SiteMetadataSync";
+import { getAppIcon } from "@/lib/app-icons";
 
 export default function Home() {
   const config = useConfigLoader();
@@ -262,9 +263,13 @@ function DeviceOverview({ devices }: { devices: DeviceState[] }) {
       {devices.map((d) => {
         const isOnline = d.is_online === 1;
         const icon = platformIcons[d.platform] || "\u{1F4BB}";
+        const appIcon = getAppIcon(d.app_name);
         return (
-          <span key={d.device_id} className={isOnline ? "" : "opacity-40"}>
+          <span key={d.device_id} className={`flex items-center gap-1 ${isOnline ? "" : "opacity-40"}`}>
             {icon} {d.device_name} · {isOnline ? (d.app_name === "idle" ? "暂时离开" : d.app_name || "idle") : "offline"}
+            {appIcon && (
+              <img src={appIcon} alt="" className="inline-block h-3.5 w-3.5" />
+            )}
           </span>
         );
       })}

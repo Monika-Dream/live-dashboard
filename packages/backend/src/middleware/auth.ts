@@ -17,7 +17,7 @@ for (const [key, value] of Object.entries(process.env)) {
         token &&
         device_id &&
         device_name &&
-        (platform === "windows" || platform === "android" || platform === "macos")
+        (platform === "windows" || platform === "android" || platform === "macos" || platform === "zepp")
       ) {
         tokenMap.set(token, { device_id, device_name, platform });
       }
@@ -38,4 +38,8 @@ export function authenticateToken(authHeader: string | null): DeviceInfo | null 
   if (!match) return null;
 
   return tokenMap.get(match[1]) || null;
+}
+
+export function authenticateRawToken(token: string): DeviceInfo | null {
+  return tokenMap.get(token) || null;
 }

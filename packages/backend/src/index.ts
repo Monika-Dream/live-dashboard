@@ -9,6 +9,7 @@ import { handleHealthData, handleHealthDataQuery } from "./routes/health-data";
 import { handleHealthWebhook } from "./routes/health-webhook";
 import { handleConfig } from "./routes/config";
 import { injectSiteConfig } from "./services/site-config";
+import { handleWebSocketUpgrade, websocketHandlers } from "./services/websocket";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
 import "./services/cleanup";
@@ -44,13 +45,23 @@ async function serveStaticFile(realFile: string): Promise<Response> {
 
 const server = Bun.serve({
   port: LISTEN_PORT,
+  websocket: websocketHandlers,
   async fetch(req) {
     const url = new URL(req.url);
     const { pathname } = url;
 
-    // CORS headers for development
+    // WebSocket upgrade
+    if (pathname === "/api/ws") {
+      const wsResult = handleWebSocketUpgrade(req, (options) =>
+        server.upgrade(req, options)
+      );
+      if (wsResult) return wsResult;
+    }
+
+    // CORS headers — only enable wildcard origin in development
+    const isDev = process.env.NODE_ENV !== "production";
     const corsHeaders: Record<string, string> = {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": isDev ? "*" : (req.headers.get("origin") || ""),
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
