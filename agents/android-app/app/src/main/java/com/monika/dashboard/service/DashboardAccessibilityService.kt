@@ -56,6 +56,8 @@ class DashboardAccessibilityService : AccessibilityService() {
         val packageName = snapshotEvent.packageName?.toString()?.trim().orEmpty()
         if (packageName.isBlank()) return
 
+        android.util.Log.i("LiveDash", "[无障碍事件] pkg=$packageName")
+
         AccessibilityCurrentAppStore.save(
             context = applicationContext,
             packageName = packageName,
