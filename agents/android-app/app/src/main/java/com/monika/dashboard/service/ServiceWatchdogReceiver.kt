@@ -18,6 +18,10 @@ import kotlinx.coroutines.launch
  * 自续期经常被推迟到 Doze 维护窗口才放行。这里用 AlarmManager 看门狗补刀：
  * 心跳服务活着时不断给自己续闹钟，服务被杀后闹钟照常触发，把服务重新拉起。
  * 同时兼任开机自启（BOOT_COMPLETED 是后台启动前台服务的官方豁免场景）。
+ *
+ * 看门狗 + 划卡/被杀快速恢复的思路借鉴自 @nmb1337 在 PR #37 中的
+ * TrackingService/ServiceWatchdogReceiver 实现，特此致谢。本实现在其
+ * 基础上补充了 Android 12+ 后台禁止启动前台服务时的 Worker 回退路径。
  */
 class ServiceWatchdogReceiver : BroadcastReceiver() {
 
