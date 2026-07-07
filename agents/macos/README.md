@@ -72,6 +72,8 @@ launchctl load ~/Library/LaunchAgents/com.live-dashboard.agent.plist
 | `interval_seconds` | 上报间隔（秒） | `5` |
 | `heartbeat_seconds` | AFK 时心跳间隔（秒） | `60` |
 | `idle_threshold_seconds` | 无操作多久后进入 AFK 模式（秒） | `300` |
+| `enable_log` | 是否写文件日志（按天轮转，保留 2 天） | `false` |
+| `enable_tray` | 是否启用菜单栏托盘。部分机器（如 M2 Max + Tahoe）上 pystray/AppKit 会直接 bus error（#30），设为 `false` 可无托盘运行，不必卸载 pystray | `true` |
 
 ## 功能
 
