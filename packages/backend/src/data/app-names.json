@@ -163,7 +163,10 @@
     "Termius.exe": "Termius",
     "Xshell.exe": "Xshell",
     "SecureCRT.exe": "SecureCRT",
-    "BvSsh.exe": "Bitvise SSH Client"
+    "BvSsh.exe": "Bitvise SSH Client",
+    "Bitwarden.exe": "Bitwarden",
+    "KeePassXC.exe": "KeePassXC",
+    "1Password.exe": "1Password"
   },
   "android": {
     "com.tencent.mm": "微信",
@@ -275,7 +278,23 @@
     "com.duowan.kiwi": "虎牙",
     "air.tv.douyu.android": "斗鱼",
     "and.sirp.masmobile": "Monika",
-    "com.server.auditor.ssh.client": "Termius"
+    "com.server.auditor.ssh.client": "Termius",
+    "com.miHoYo.Nap": "绝区零",
+    "com.kurogame.mingchao": "鸣潮",
+    "com.tencent.tmgp.pubgmhd": "和平精英",
+    "com.mihoyo.hyperion": "米游社",
+    "com.duolingo": "多邻国",
+    "com.icbc": "中国工商银行",
+    "com.android.bankabc": "中国农业银行",
+    "cmb.pb": "招商银行",
+    "com.chinamworld.bocmbci": "中国银行",
+    "com.bankcomm.Bankcomm": "交通银行",
+    "com.unionpay": "云闪付",
+    "com.x8bit.bitwarden": "Bitwarden",
+    "com.google.android.apps.authenticator2": "Google Authenticator",
+    "com.azure.authenticator": "Microsoft Authenticator",
+    "cn.gov.tax.its": "个人所得税",
+    "com.tmri.app.main": "交管12123"
   },
   "macos": {
     "Code": "Visual Studio Code",

@@ -185,6 +185,55 @@ registerTier("hide", [
   "Cyberduck", "Transmit",
 ]);
 
+// ── SECRET：整个应用匿名化（比 hide 更进一步）──
+//
+// hide 只隐藏窗口标题，应用名本身仍会出现在时间线里；但"正在用某某银行"
+// 这个事实本身就是敏感信息（同类项目如 ActivityWatch 对金融类的通行做法
+// 也是整应用归并）。SECRET 集合里的应用在 report.ts 写入前就被改写为
+// SECRET_APP_NAME，时长统计保留、任何可识别信息不落库不展示。
+// 部署者如确实想展示某个应用，可用自定义 JSON 映射改名绕开（自担后果）。
+
+export const SECRET_APP_NAME = "私密应用";
+
+const secretApps = new Set<string>();
+
+function registerSecret(names: string[]) {
+  for (const name of names) secretApps.add(name.toLowerCase());
+}
+
+// 银行 / 支付清算
+registerSecret([
+  "中国工商银行", "工商银行", "工银", "中国农业银行", "农业银行", "中国银行",
+  "中国建设银行", "建设银行", "招商银行", "交通银行", "邮储银行", "中国邮政储蓄银行",
+  "浦发银行", "中信银行", "民生银行", "兴业银行", "光大银行", "华夏银行",
+  "广发银行", "平安口袋银行", "平安银行", "云闪付", "数字人民币",
+  "网商银行", "微众银行",
+]);
+
+// 券商 / 理财 / 加密货币
+registerSecret([
+  "同花顺", "东方财富", "富途牛牛", "老虎证券", "雪球", "天天基金",
+  "Binance", "币安", "OKX", "欧易", "MetaMask", "imToken",
+]);
+
+// 密码管理器 / 两步验证
+registerSecret([
+  "Bitwarden", "Vaultwarden", "1Password", "KeePass", "KeePassXC", "KeePassDX",
+  "LastPass", "Enpass", "Dashlane", "Proton Pass",
+  "Google Authenticator", "Microsoft Authenticator", "Authy", "Aegis",
+  "身份验证器",
+]);
+
+// 政务 / 证件
+registerSecret([
+  "个人所得税", "交管12123", "国家反诈中心", "电子社保卡", "随申办",
+]);
+
+export function isSecretApp(appName: string): boolean {
+  if (!appName) return false;
+  return secretApps.has(appName.trim().toLowerCase());
+}
+
 // HIDE — download / cloud / remote / meeting
 registerTier("hide", [
   "qBittorrent", "µTorrent", "BitComet", "迅雷",
