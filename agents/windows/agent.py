@@ -1,6 +1,25 @@
 """
-Live Dashboard — Windows Agent
-Monitors the foreground window and reports app usage to the dashboard backend.
+Live Dashboard — Windows Agent（单文件实现，无其他本地模块依赖）
+
+职责：采集前台窗口（Win32 API）、键鼠空闲、电池、音乐播放信息，
+按"变化即报 + 定期心跳"模型 POST 到后端 /api/report。
+
+文件内部分区（对应下方分隔注释）：
+  Logging        — 控制台常开，文件日志按天轮转保留 2 天，可配置开关
+  Win32 helpers  — GetForegroundWindow / GetLastInputInfo / 音频会话检测
+  Music          — EnumWindows 扫描已知音乐进程，从窗口标题解析歌名/歌手
+  Config         — config.json 读写与校验（server_url 仅允许 HTTPS 或内网 HTTP）
+  Autostart      — 注册表 HKCU\\...\\Run 自启 + 旧版计划任务自动清理迁移
+  Settings GUI   — tkinter 设置窗口
+  Reporter       — 指数退避 + 连续失败熔断暂停（非阻塞），ISO-8601 UTC 时间戳
+  Tray           — pystray 托盘（绿=在线/橙=AFK/灰=离线）
+  Monitor loop   — 主循环：AFK 检测（音频播放豁免）、变化上报、心跳
+
+联动关系：
+  - 上报格式与后端 packages/backend/src/routes/report.ts 对齐
+    （window_title 只用于服务端生成 display_title，原文不落库）
+  - 隐私分级、应用名映射全部在服务端完成，本 agent 不做任何映射
+  - 配置示例见同目录 config.example.json；部署说明见 README.md
 """
 
 import ctypes
