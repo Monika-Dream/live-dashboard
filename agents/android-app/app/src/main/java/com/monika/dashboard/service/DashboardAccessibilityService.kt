@@ -1,3 +1,7 @@
+/*
+ * 无障碍服务：只监听 WINDOW_STATE_CHANGED，把前台包名快照写入 AccessibilityCurrentAppStore。
+ * 用户开启无障碍后本服务由系统级保活，是前台检测最可靠的一层。
+ */
 package com.monika.dashboard.service
 
 import android.accessibilityservice.AccessibilityService

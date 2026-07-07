@@ -1,3 +1,7 @@
+/*
+ * 读取当前播放音乐（歌名/歌手/来源应用），基于 MediaSessionManager。
+ * 联动：需要 DashboardNotificationListenerService 获得通知使用权后才可用；HeartbeatReporter 消费结果。
+ */
 package com.monika.dashboard.monitor
 
 import android.content.ComponentName

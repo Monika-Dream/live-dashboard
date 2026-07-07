@@ -1,3 +1,6 @@
+/*
+ * Health Connect 权限说明页，仅由系统 Health Connect 侧拉起（manifest 限定 START_VIEW_PERMISSION_USAGE）。
+ */
 package com.monika.dashboard
 
 import android.os.Bundle

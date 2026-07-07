@@ -1,3 +1,7 @@
+/*
+ * 全应用配置单一来源：DataStore 存普通偏好，EncryptedSharedPreferences(AES256-GCM) 存上报 token。
+ * 联动：所有 Screen / Service / Worker 的配置读写都走这里；地址校验依赖 ServerUrlPolicy。
+ */
 package com.monika.dashboard.data
 
 import android.content.Context

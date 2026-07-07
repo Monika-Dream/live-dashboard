@@ -1,3 +1,8 @@
+/*
+ * WorkManager 周期任务：从 Health Connect 读增量数据，分批（500 条/批）上传到后端 /api/health-data。
+ * 同步游标只在全部类型读取成功后才推进，部分失败时下次重读，避免静默丢数据。
+ * 联动：由 HealthScreen 排程；读数据靠 HealthConnectManager；上传靠 ReportClient。
+ */
 package com.monika.dashboard.health
 
 import android.content.Context

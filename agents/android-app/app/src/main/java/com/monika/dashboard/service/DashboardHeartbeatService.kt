@@ -1,3 +1,7 @@
+/*
+ * 前台服务心跳循环：常驻通知 + 按配置间隔调 HeartbeatReporter 上报。
+ * 保活联动：每轮给 ServiceWatchdogReceiver 续闹钟，被杀/划卡后由闹钟拉活；HeartbeatWorker 是无法启动前台服务时的回退。
+ */
 package com.monika.dashboard.service
 
 import android.app.NotificationChannel

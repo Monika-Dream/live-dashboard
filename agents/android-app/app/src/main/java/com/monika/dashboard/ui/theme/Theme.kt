@@ -1,3 +1,6 @@
+/*
+ * Compose 主题：品牌粉色系配色与 Material3 主题定义。
+ */
 package com.monika.dashboard.ui.theme
 
 import androidx.compose.material3.MaterialTheme

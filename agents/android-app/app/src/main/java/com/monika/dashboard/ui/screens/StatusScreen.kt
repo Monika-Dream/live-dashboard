@@ -1,3 +1,6 @@
+/*
+ * 状态页：权限体检（电池优化 / 小米自启动 / 无障碍 / 通知使用权 / 使用情况访问）+ DebugLog 实时查看。
+ */
 package com.monika.dashboard.ui.screens
 
 import android.content.Intent

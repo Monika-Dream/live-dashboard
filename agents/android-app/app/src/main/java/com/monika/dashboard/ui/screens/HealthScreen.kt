@@ -1,3 +1,6 @@
+/*
+ * 健康页：Health Connect 授权入口、18 类数据开关、同步间隔配置（排程 HealthSyncWorker）。
+ */
 package com.monika.dashboard.ui.screens
 
 import android.content.Intent

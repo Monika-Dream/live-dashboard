@@ -1,3 +1,7 @@
+/*
+ * 服务器地址安全策略：HTTPS 一律放行，HTTP 仅允许内网地址，防止 token 明文走公网。
+ * 联动：SetupScreen 保存地址、SettingsStore 读取地址时都经过这里校验。
+ */
 package com.monika.dashboard
 
 import java.net.InetAddress

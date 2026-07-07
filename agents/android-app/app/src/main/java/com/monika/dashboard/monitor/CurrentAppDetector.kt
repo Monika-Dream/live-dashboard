@@ -1,3 +1,7 @@
+/*
+ * 前台应用检测，三级回退：无障碍快照（≤2 分钟）→ UsageEvents → UsageStats。
+ * 联动：快照由 DashboardAccessibilityService 写入 AccessibilityCurrentAppStore；HeartbeatReporter 消费检测结果。
+ */
 package com.monika.dashboard.monitor
 
 import android.app.AppOpsManager

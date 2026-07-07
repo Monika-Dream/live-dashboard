@@ -1,3 +1,6 @@
+/*
+ * 设置页：服务器地址 / Token 配置（ServerUrlPolicy 校验）+ 后台监听开关（启停 DashboardHeartbeatService）。
+ */
 package com.monika.dashboard.ui.screens
 
 import androidx.compose.foundation.layout.*

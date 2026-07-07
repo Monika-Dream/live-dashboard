@@ -1,3 +1,7 @@
+/*
+ * 心跳单次执行体：采集前台应用（CurrentAppDetector）/ 电池 / 音乐（MusicMetadataProvider）并上报。
+ * 联动：被 DashboardHeartbeatService（前台循环）和 HeartbeatWorker（后台回退）复用。
+ */
 package com.monika.dashboard.service
 
 import android.content.Context

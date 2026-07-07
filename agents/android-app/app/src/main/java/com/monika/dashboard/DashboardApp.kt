@@ -1,3 +1,7 @@
+/*
+ * Application 入口：提供全应用共享的 OkHttpClient（连接池复用）和 WorkManager 按需初始化配置。
+ * 联动：ReportClient 及各 Worker 通过 DashboardApp.httpClient 发请求；manifest 已移除默认 WorkManagerInitializer。
+ */
 package com.monika.dashboard
 
 import android.app.Application

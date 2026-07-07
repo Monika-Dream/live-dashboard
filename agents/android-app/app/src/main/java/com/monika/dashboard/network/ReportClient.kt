@@ -1,3 +1,7 @@
+/*
+ * 后端 HTTP 客户端：POST /api/report（心跳/前台应用）、POST /api/health-data（健康数据）、GET /api/health（连通性）。
+ * 联动：复用 DashboardApp.httpClient；token/地址来自 SettingsStore。上报的是原始包名，映射在服务端完成。
+ */
 package com.monika.dashboard.network
 
 import com.monika.dashboard.DashboardApp

@@ -1,3 +1,7 @@
+/*
+ * Compose 主界面脚手架：Setup / Health / Status 三个 Tab + 顶栏连接状态（每 5s 调 ReportClient.testConnection）。
+ * 联动：三个页面在 ui/screens/ 下；配置读写走 data/SettingsStore。
+ */
 package com.monika.dashboard
 
 import android.Manifest

@@ -1,3 +1,7 @@
+/*
+ * Health Connect 读取封装：18 类健康数据、权限检查、后台读取可用性探测。
+ * 联动：HealthSyncWorker 用它读数据；HealthScreen / StatusScreen 用它查权限状态。
+ */
 package com.monika.dashboard.health
 
 import android.content.Context
