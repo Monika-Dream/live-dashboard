@@ -1,7 +1,7 @@
 import { authenticateToken } from "../middleware/auth";
 import { resolveAppMeta } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
-import { processDisplayTitle } from "../services/privacy-tiers";
+import { isSecretApp, processDisplayTitle, SECRET_APP_NAME } from "../services/privacy-tiers";
 import { canReportActivity, insertActivity, upsertDeviceState, hmacTitle } from "../db";
 
 const MAX_TITLE_LENGTH = 256;
@@ -61,7 +61,18 @@ export async function handleReport(req: Request): Promise<Response> {
   }
 
   // Resolve app name
-  const { appName } = resolveAppMeta(appId, device.platform);
+  let { appName } = resolveAppMeta(appId, device.platform);
+  let effectiveAppId = appId;
+
+  // 私密应用（银行/密码管理器等）：写入前整体匿名化，app_id/标题一概不落库。
+  // "正在用某某银行"这个事实本身就是敏感信息，时长保留、内容清零。
+  // resolveAppMeta 在读侧已把 secret 应用改名为 SECRET_APP_NAME，
+  // 这里按结果名判断，把原始 app_id 一并抹掉。
+  if (appName === SECRET_APP_NAME || isSecretApp(appName)) {
+    effectiveAppId = "private";
+    appName = SECRET_APP_NAME;
+    windowTitle = "";
+  }
 
   // Privacy: generate display_title (safe for public), then discard raw window_title
   const displayTitle = processDisplayTitle(appName, windowTitle);
@@ -99,7 +110,7 @@ export async function handleReport(req: Request): Promise<Response> {
       device.device_id,
       device.device_name,
       device.platform,
-      appId,
+      effectiveAppId,
       appName,
       "",           // window_title: always empty for privacy
       displayTitle,
@@ -120,7 +131,7 @@ export async function handleReport(req: Request): Promise<Response> {
       device.device_id,
       device.device_name,
       device.platform,
-      appId,
+      effectiveAppId,
       appName,
       "",           // window_title: always empty for privacy
       displayTitle,

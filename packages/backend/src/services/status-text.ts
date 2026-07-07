@@ -314,6 +314,12 @@ const descriptions: Record<string, string> = {
   "Google Maps": "正在看地图喵~",
   滴滴出行: "正在叫车喵~",
   飞猪: "正在飞猪订行程喵~",
+  米游社: "正在米游社逛社区喵~",
+  多邻国: "正在多邻国学外语喵~",
+  Duolingo: "正在多邻国学外语喵~",
+  // SECRET 层（privacy-tiers）把金融/密码类应用统一改写成这个名字，
+  // 文案刻意与未知应用兜底一致，不暴露任何额外信息
+  私密应用: "正在忙别的喵~",
 };
 
 export const DEFAULT_STATUS_TEXT = "正在忙别的喵~";
