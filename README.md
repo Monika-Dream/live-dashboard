@@ -18,7 +18,9 @@
 
 - 猫耳装饰的视觉小说风格对话框 + 中文戏剧化活动描述
 - 飘落的樱花花瓣动画，夜间自动切换萤火主题
-- 三级隐私系统（SHOW / BROWSER / HIDE）保护敏感窗口标题
+- 四级隐私系统（SHOW / BROWSER / HIDE / SECRET）——银行、密码管理器等私密应用整应用匿名化，只留时长不留痕
+- 多面板聚合：环境变量配置好友的仪表盘，一个页面切换围观（只读代理，不暴露任何管理接口）
+- 自定义应用映射：挂载一个 JSON 文件即可新增/覆盖应用名与文案，无需改代码重构建
 - 系统托盘常驻 + AFK 检测（看视频/听歌时自动豁免）
 - 音乐检测（Spotify、QQ音乐、网易云等）
 - Health Connect 健康数据同步（Android）
@@ -100,22 +102,49 @@ echo "Token: $TOKEN  ← Agent 配置用"
 
 ## 自定义应用映射
 
-如果你想自己新增或覆盖某个应用的显示名、前端展示文案，优先修改后端覆盖表：
+内置映射覆盖不到的应用，用一个 JSON 文件就能补——**不用改代码、不用重新构建镜像**：
 
-- `packages/backend/src/data/app-overrides.ts`
+1. 把仓库根目录的 [`custom-mappings.example.json`](custom-mappings.example.json) 复制为 `custom-mappings.json`
+2. 放进数据卷（Docker 部署即 `/data/custom-mappings.json`），或用环境变量 `CUSTOM_MAPPINGS_FILE` 指定任意路径
+3. 重启容器生效
 
-这个文件支持按平台和原始 `app_id` 覆盖：
+格式（各段均可省略）：
 
-- `name`：显示名称
-- `statusText`：最终展示文案
+```json
+{
+  "windows": { "mygame.exe": { "name": "我的游戏", "statusText": "正在打自己做的游戏喵~" } },
+  "android": { "com.example.app": { "name": "某应用" } },
+  "macos":   { "SomeApp": { "statusText": "正在用 SomeApp 干活喵~" } },
+  "statusTexts": { "微信": "正在微信上谈大生意喵~" }
+}
+```
 
-只改 `name` 而不改 `statusText` 时，会继续沿用该应用原本的默认文案。
+- `windows` / `android` / `macos` 段按原始 `app_id`（进程名 / 包名，大小写不敏感）匹配
+- `statusTexts` 段按映射后的应用名匹配，用来给内置应用换文案
+- **与内置条目冲突时，以你的 JSON 为准**；非法条目会被跳过并在日志里提示
 
-如果只是想加几个自己常用的软件，通常只改这一个文件就够了。
+想把自定义直接贡献回项目的话，改源码里的 `packages/backend/src/data/app-overrides.ts`（按 app_id 覆盖）或基础映射表 `packages/backend/src/data/app-names.json`，然后提 PR。
 
-只有当某个应用连基础显示名都没有被后端识别时，才需要补基础映射表：
+## 多面板聚合
 
-- `packages/backend/src/data/app-names.json`
+想在自己的页面上同时围观朋友的仪表盘？配置 `EXTERNAL_DASHBOARDS` 环境变量（JSON 数组）即可，前端会出现面板切换器：
+
+```bash
+EXTERNAL_DASHBOARDS='[{"id":"friend1","name":"小明的面板","url":"https://now.friend.example"}]'
+```
+
+- `id` 任意唯一标识（`local` 保留给本站）；`url` 是对方站点根地址（须为 http/https）
+- 数据经本站 `/api/proxy` 只读转发，浏览器不直连对方站点，也不需要对方做任何配置
+
+## 隐私与安全
+
+本项目的定位是"把此刻的状态公开给朋友看"，安全设计围绕"公开的只有状态，别的什么都不漏"：
+
+- 窗口标题原文**永不落库**（仅存 HMAC-SHA256 去重哈希，`HASH_SECRET` 必填）
+- 四级隐私：聊天/邮件/金融/系统工具默认隐藏标题；**银行、券商、密码管理器、验证器、政务类整应用匿名化**为"私密应用"，只保留使用时长
+- 上报鉴权用 Bearer Token（`DEVICE_TOKEN_N`），公开接口只读且不含设备令牌信息
+- 多面板代理只允许白名单端点（current/timeline/health-data/config）、6 秒超时、1MB 响应上限，目标地址只能来自你自己的环境变量配置
+- 可选 `REQUIRE_EXPLICIT_CONSENT=1`：开启后设备必须先 POST `/api/consent` 明确同意，才能上报活动/健康数据
 
 ## 许可证
 
