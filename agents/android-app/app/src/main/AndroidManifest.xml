@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 后台上报时短暂持有唤醒锁，保证网络请求在进程被厂商重新冻结前发完 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 前台应用识别依赖 Usage Stats，必须先在清单里声明，这样系统设置里才会出现授权入口。 -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"

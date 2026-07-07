@@ -12,7 +12,9 @@
 package com.monika.dashboard.service
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import com.monika.dashboard.data.DebugLog
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class DashboardAccessibilityService : AccessibilityService() {
 
@@ -36,6 +39,8 @@ class DashboardAccessibilityService : AccessibilityService() {
         private const val MIN_REPORT_GAP_MS = 3_000L
         /** 这些包名的窗口事件不值得立即上报（系统界面/输入法弹窗等噪音）。 */
         private val IGNORED_PACKAGES = setOf("com.android.systemui")
+        /** WakeLock / 上报超时上限，防止异常时长期占用唤醒锁。 */
+        private const val WAKELOCK_TIMEOUT_MS = 15_000L
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -67,7 +72,13 @@ class DashboardAccessibilityService : AccessibilityService() {
         maybeReportImmediately(packageName)
     }
 
-    /** 前台应用变了就立刻上报一次，绕开被厂商冻结的心跳循环。 */
+    /**
+     * 前台应用变了就立刻上报一次，绕开被厂商冻结的心跳循环。
+     *
+     * 关键：HyperOS 在处理完无障碍事件的那一刻会立即把进程重新冻住，异步的
+     * 网络上报常常还没发完就被掐断。所以这里先抢一个 PARTIAL_WAKE_LOCK（带超时），
+     * 强行让 CPU 保持唤醒直到上报完成再释放，堵住"冻结前发不完"这个洞。
+     */
     private fun maybeReportImmediately(packageName: String) {
         if (packageName == applicationContext.packageName) return
         if (packageName in IGNORED_PACKAGES) return
@@ -76,9 +87,16 @@ class DashboardAccessibilityService : AccessibilityService() {
         if (packageName == lastReportedPackage && now - lastReportAt < SAME_APP_SILENCE_MS) return
         if (now - lastReportAt < MIN_REPORT_GAP_MS) return
 
+        val powerManager = applicationContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val wakeLock = powerManager?.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "LiveDashboard:accessibility-report"
+        )?.apply { setReferenceCounted(false) }
+        // 先在事件线程（未被冻结的窗口）内点亮 WakeLock，再交给协程发请求
+        runCatching { wakeLock?.acquire(WAKELOCK_TIMEOUT_MS) }
+
         serviceScope.launch {
             try {
-                // 与并发的心跳循环互不干扰，但事件侧自身串行化
                 reportMutex.withLock {
                     val recheck = SystemClock.elapsedRealtime()
                     if (packageName == lastReportedPackage && recheck - lastReportAt < SAME_APP_SILENCE_MS) return@withLock
@@ -89,14 +107,16 @@ class DashboardAccessibilityService : AccessibilityService() {
 
                     lastReportedPackage = packageName
                     lastReportAt = SystemClock.elapsedRealtime()
-                    val result = HeartbeatReporter.runOnce(
-                        applicationContext,
-                        settings.reportInterval.first()
-                    )
-                    DebugLog.log("无障碍", "切换即报：$packageName → ${result.summary}")
+                    // 上报本身再套一层超时，避免卡死时一直占着 WakeLock
+                    val result = withTimeoutOrNull(WAKELOCK_TIMEOUT_MS) {
+                        HeartbeatReporter.runOnce(applicationContext, settings.reportInterval.first())
+                    }
+                    DebugLog.log("无障碍", "切换即报：$packageName → ${result?.summary ?: "超时"}")
                 }
             } catch (e: Exception) {
                 DebugLog.log("无障碍", "切换上报失败: ${e.message}")
+            } finally {
+                runCatching { if (wakeLock?.isHeld == true) wakeLock.release() }
             }
         }
     }
