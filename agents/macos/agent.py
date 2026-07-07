@@ -446,6 +446,10 @@ def open_settings_in_subprocess() -> bool:
     """
     Open settings UI in a separate process to avoid pystray(AppKit) + Tk re-init
     crashes on macOS. Returns True when config was saved.
+
+    子进程方案与 --settings-dialog 入口来自 @Steve5wutongyu6 的 PR #35
+    （连同 update_status 里的 update_menu 刷新思路），特此致谢。
+    此处在其基础上修正了 cmd 在异常路径下可能未定义的问题。
     """
     cmd: list[str] = []
     try:
