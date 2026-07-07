@@ -1,24 +1,22 @@
+# Quick start with pre-built image — no need to clone or build from source.
+# 1. Copy this file:  cp docker-compose.example.yml docker-compose.yml
+# 2. Create .env:     cp .env.example .env   (then fill in your tokens)
+# 3. Run:             docker compose up -d
+
 services:
   dashboard:
-    build: .
+    image: ghcr.io/monika-dream/live-dashboard:latest
     container_name: live_dashboard
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
-      - PORT=3000
-      - STATIC_DIR=/app/public
       - DB_PATH=/data/live-dashboard.db
       - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
       - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
       - HASH_SECRET=${HASH_SECRET}
-      - DISPLAY_NAME=${DISPLAY_NAME}
-      - SITE_TITLE=${SITE_TITLE}
-      - SITE_DESC=${SITE_DESC}
-      - SITE_FAVICON=${SITE_FAVICON}
     volumes:
       - dashboard_data:/data
-    networks:
-      dm_network:
-        ipv4_address: 172.20.0.80
     mem_limit: 128m
     cpus: 0.5
     logging:
@@ -29,8 +27,3 @@ services:
 
 volumes:
   dashboard_data:
-
-networks:
-  dm_network:
-    external: true
-    name: your_external_network  # Replace with your Docker network name

@@ -25,6 +25,7 @@ COPY --from=frontend-build /build/out ./public
 RUN mkdir -p /data && chown dashboard:dashboard /data
 
 ENV STATIC_DIR=/app/public
+ENV DB_PATH=/data/live-dashboard.db
 ENV PORT=3000
 ENV NODE_ENV=production
 ENV HOME=/home/dashboard

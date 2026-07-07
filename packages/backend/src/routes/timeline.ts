@@ -4,6 +4,8 @@ import {
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
 import { db } from "../db";
+import { isConfiguredDeviceId } from "../middleware/auth";
+import { resolveAppMeta } from "../services/app-mapper";
 
 export function handleTimeline(url: URL): Response {
   const date = url.searchParams.get("date");
@@ -19,6 +21,10 @@ export function handleTimeline(url: URL): Response {
   const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
 
   const deviceId = url.searchParams.get("device_id");
+
+  if (deviceId && !isConfiguredDeviceId(deviceId)) {
+    return Response.json({ date, segments: [], summary: {} });
+  }
 
   let activities: ActivityRecord[];
 
@@ -45,6 +51,8 @@ export function handleTimeline(url: URL): Response {
       : (getTimelineByDate.all(date) as ActivityRecord[]);
   }
 
+  activities = activities.filter((activity) => isConfiguredDeviceId(activity.device_id));
+
   // Build timeline segments with duration
   // Gap threshold: if time between two consecutive activities exceeds this,
   // the device was likely offline (sleep/shutdown). Agent heartbeats every 60s,
@@ -54,6 +62,7 @@ export function handleTimeline(url: URL): Response {
   const segments: TimelineSegment[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
+    const { appName, statusText } = resolveAppMeta(a.app_id, a.platform);
     // Find next activity on same device to compute end time
     let endedAt: string | null = null;
     for (let j = i + 1; j < activities.length; j++) {
@@ -80,8 +89,9 @@ export function handleTimeline(url: URL): Response {
     const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));
 
     segments.push({
-      app_name: a.app_name,
+      app_name: appName,
       app_id: a.app_id,
+      status_text: statusText,
       display_title: a.display_title || "",
       started_at: a.started_at,
       ended_at: endedAt,

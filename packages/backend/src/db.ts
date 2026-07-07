@@ -87,6 +87,49 @@ if (!columnExists("device_states", "extra")) {
   db.run("ALTER TABLE device_states ADD COLUMN extra TEXT DEFAULT '{}'");
 }
 
+// ── Health records table ──
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS health_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    value REAL NOT NULL,
+    unit TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    end_time TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(device_id, type, recorded_at, end_time)
+  )
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_health_records_recorded
+  ON health_records(recorded_at)
+`);
+
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_health_records_type
+  ON health_records(type, recorded_at)
+`);
+
+// ── Device consent table (privacy/compliance) ──
+// consent 的概念与 device_consents 表结构参考了 @nmb1337 在 PR #37 中的
+// 设计，特此致谢。此处以 REQUIRE_EXPLICIT_CONSENT 环境变量开关的最小实现
+// 落地，默认关闭以保持对现有 agent 的向后兼容。
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS device_consents (
+    device_id TEXT PRIMARY KEY,
+    consent_version INTEGER NOT NULL DEFAULT 1,
+    activity_reporting INTEGER NOT NULL DEFAULT 0,
+    health_reporting INTEGER NOT NULL DEFAULT 0,
+    granted_scopes TEXT NOT NULL DEFAULT '[]',
+    granted_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+
 // ── HMAC hash secret validation ──
 
 const HASH_SECRET = process.env.HASH_SECRET || "";
@@ -155,7 +198,111 @@ export const cleanupOldActivities = db.prepare(`
   DELETE FROM activities WHERE created_at < datetime('now', '-7 days')
 `);
 
-// Daily summaries table (AI-generated, kept 7 days)
+export const upsertDeviceConsent = db.prepare(`
+  INSERT INTO device_consents (
+    device_id,
+    consent_version,
+    activity_reporting,
+    health_reporting,
+    granted_scopes,
+    granted_at,
+    updated_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(device_id) DO UPDATE SET
+    consent_version = excluded.consent_version,
+    activity_reporting = excluded.activity_reporting,
+    health_reporting = excluded.health_reporting,
+    granted_scopes = excluded.granted_scopes,
+    granted_at = excluded.granted_at,
+    updated_at = excluded.updated_at
+`);
+
+const getDeviceConsentById = db.prepare(`
+  SELECT
+    device_id,
+    consent_version,
+    activity_reporting,
+    health_reporting,
+    granted_scopes,
+    granted_at,
+    updated_at
+  FROM device_consents
+  WHERE device_id = ?
+  LIMIT 1
+`);
+
+type DeviceConsentRow = {
+  device_id: string;
+  consent_version: number;
+  activity_reporting: number;
+  health_reporting: number;
+  granted_scopes: string;
+  granted_at: string;
+  updated_at: string;
+};
+
+const REQUIRE_EXPLICIT_CONSENT = /^(1|true|yes)$/i.test(
+  process.env.REQUIRE_EXPLICIT_CONSENT || ""
+);
+
+export function isExplicitConsentRequired(): boolean {
+  return REQUIRE_EXPLICIT_CONSENT;
+}
+
+export function getDeviceConsent(deviceId: string): DeviceConsentRow | null {
+  return (getDeviceConsentById.get(deviceId) as DeviceConsentRow | undefined) || null;
+}
+
+export function canReportActivity(deviceId: string): boolean {
+  if (!REQUIRE_EXPLICIT_CONSENT) return true;
+  const consent = getDeviceConsent(deviceId);
+  return !!consent && consent.activity_reporting === 1;
+}
+
+export function canReportHealth(deviceId: string): boolean {
+  if (!REQUIRE_EXPLICIT_CONSENT) return true;
+  const consent = getDeviceConsent(deviceId);
+  return !!consent && consent.health_reporting === 1;
+}
+
+export function cleanupUnconfiguredDeviceData(allowedDeviceIds: string[]): {
+  deviceStatesDeleted: number;
+  activitiesDeleted: number;
+  healthRecordsDeleted: number;
+} {
+  if (allowedDeviceIds.length === 0) {
+    return {
+      deviceStatesDeleted: 0,
+      activitiesDeleted: 0,
+      healthRecordsDeleted: 0,
+    };
+  }
+
+  const placeholders = allowedDeviceIds.map(() => "?").join(", ");
+
+  const deleteDeviceStates = db.prepare(
+    `DELETE FROM device_states WHERE device_id NOT IN (${placeholders})`
+  );
+  const deleteActivities = db.prepare(
+    `DELETE FROM activities WHERE device_id NOT IN (${placeholders})`
+  );
+  const deleteHealthRecords = db.prepare(
+    `DELETE FROM health_records WHERE device_id NOT IN (${placeholders})`
+  );
+
+  const tx = db.transaction((ids: string[]) => {
+    const deviceStatesDeleted = deleteDeviceStates.run(...ids).changes;
+    const activitiesDeleted = deleteActivities.run(...ids).changes;
+    const healthRecordsDeleted = deleteHealthRecords.run(...ids).changes;
+    return { deviceStatesDeleted, activitiesDeleted, healthRecordsDeleted };
+  });
+
+  return tx(allowedDeviceIds);
+}
+
+// ── Daily summaries（blossom-letter 主题的"今日小结"，AI 生成，保留 7 天）──
+
 db.run(`
   CREATE TABLE IF NOT EXISTS daily_summaries (
     date TEXT PRIMARY KEY,

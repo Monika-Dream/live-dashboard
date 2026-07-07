@@ -1,6 +1,7 @@
 import type { DeviceInfo } from "../types";
 
 const tokenMap = new Map<string, DeviceInfo>();
+const configuredDeviceIds = new Set<string>();
 
 // Parse DEVICE_TOKEN_N env vars: "token:device_id:device_name:platform"
 for (const [key, value] of Object.entries(process.env)) {
@@ -20,6 +21,7 @@ for (const [key, value] of Object.entries(process.env)) {
         (platform === "windows" || platform === "android" || platform === "macos")
       ) {
         tokenMap.set(token, { device_id, device_name, platform });
+        configuredDeviceIds.add(device_id);
       }
     }
   }
@@ -37,5 +39,16 @@ export function authenticateToken(authHeader: string | null): DeviceInfo | null 
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
 
-  return tokenMap.get(match[1]) || null;
+  const token = match[1];
+  if (!token) return null;
+
+  return tokenMap.get(token) || null;
+}
+
+export function isConfiguredDeviceId(deviceId: string): boolean {
+  return configuredDeviceIds.has(deviceId);
+}
+
+export function getConfiguredDeviceIds(): string[] {
+  return Array.from(configuredDeviceIds);
 }

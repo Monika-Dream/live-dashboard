@@ -1,4 +1,6 @@
 import appNamesData from "../data/app-names.json";
+import { appOverrides } from "../data/app-overrides";
+import { DEFAULT_STATUS_TEXT, getStatusText } from "./status-text";
 
 // Build case-insensitive lookup maps
 const windowsMap = new Map<string, string>();
@@ -16,9 +18,24 @@ for (const [key, value] of Object.entries(appNamesData.macos)) {
   macosMap.set(key.toLowerCase(), value);
 }
 
-export function resolveAppName(
+type SupportedPlatform = "windows" | "android" | "macos";
+
+function normalizePlatform(platform: string): SupportedPlatform | null {
+  if (platform === "windows" || platform === "android" || platform === "macos") {
+    return platform;
+  }
+  return null;
+}
+
+function getOverride(appId: string, platform: string) {
+  const normalizedPlatform = normalizePlatform(platform);
+  if (!normalizedPlatform || !appId) return undefined;
+  return appOverrides[normalizedPlatform][appId.toLowerCase()];
+}
+
+function resolveBaseAppName(
   appId: string,
-  platform: "windows" | "android" | "macos"
+  platform: string
 ): string {
   if (!appId || typeof appId !== "string") return "Unknown";
   const lower = appId.toLowerCase();
@@ -45,4 +62,30 @@ export function resolveAppName(
   // Only a few process names need remapping (e.g. "Code" → "Visual Studio Code").
   const found = macosMap.get(lower);
   return found ?? appId;
+}
+
+export function resolveAppName(
+  appId: string,
+  platform: string
+): string {
+  const override = getOverride(appId, platform);
+  if (override?.name) return override.name;
+  return resolveBaseAppName(appId, platform);
+}
+
+export function resolveAppMeta(appId: string, platform: string) {
+  const override = getOverride(appId, platform);
+  const baseAppName = resolveBaseAppName(appId, platform);
+  const appName = override?.name ?? baseAppName;
+  const overrideNameStatusText = override?.name
+    ? getStatusText(override.name)
+    : DEFAULT_STATUS_TEXT;
+  return {
+    appName,
+    statusText:
+      override?.statusText ??
+      (overrideNameStatusText !== DEFAULT_STATUS_TEXT
+        ? overrideNameStatusText
+        : getStatusText(baseAppName)),
+  };
 }

@@ -19,3 +19,11 @@ __pycache__/
 build/
 *.zip
 packages/backend/public/
+agents/android-app/local.properties
+
+agents/android-app/.gradle/
+agents/android-app/app/build/
+agents/android-app/build/
+agents/android-app/keystore.properties
+agents/android-app/*.keystore
+*.hprof

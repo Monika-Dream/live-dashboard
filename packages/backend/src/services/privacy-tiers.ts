@@ -41,14 +41,15 @@ registerTier("show", [
   "Steam", "Epic Games",
   "Genshin Impact", "原神",
   "League of Legends", "英雄联盟",
+  "崩坏3",
   "Honkai: Star Rail", "崩坏：星穹铁道",
   "Minecraft",
-  "王者荣耀", "和平精英",
+  "王者荣耀", "和平精英", "QQ飞车手游", "荒野行动",
   "VALORANT", "Counter-Strike 2", "CSGO",
   "Overwatch", "Apex Legends",
   "Elden Ring", "Zelda", "Roblox",
   "GOG Galaxy", "Xbox", "EA App", "Ubisoft Connect", "Battle.net",
-  "明日方舟", "Arknights", "绝区零", "鸣潮",
+  "明日方舟", "Arknights", "绝区零", "鸣潮", "Monika",
   // Galgame titles
   "いろとりどりのセカイ", "五彩斑斓的世界", "FAVORITE",
   "ものべの", "CLANNAD", "Fate/stay night",
@@ -108,13 +109,13 @@ registerTier("show", [
 
 // SHOW — reading
 registerTier("show", [
-  "Kindle", "微信读书", "多看阅读", "Apple Books", "Calibre",
+  "Kindle", "微信读书", "多看阅读", "Apple Books", "Calibre", "墨墨背单词",
 ]);
 
 // BROWSER
 registerTier("browser", [
   "Google Chrome", "Chrome", "Microsoft Edge",
-  "Firefox", "Safari", "Opera", "Arc",
+  "QQ浏览器", "Firefox", "Safari", "Opera", "Arc",
   "Brave", "Vivaldi", "Opera GX",
 ]);
 
@@ -161,7 +162,7 @@ registerTier("hide", [
 // HIDE — shopping / services (no need to show window_title)
 registerTier("hide", [
   "淘宝", "京东", "拼多多", "唯品会",
-  "美团", "饿了么", "大众点评", "小米应用商店",
+  "美团", "美团外卖", "饿了么", "大众点评", "小米应用商店",
   "铁路12306", "携程", "百度地图", "高德地图",
   "闲鱼", "Google Play", "App Store",
   "Google Maps", "滴滴出行", "飞猪",
@@ -170,11 +171,18 @@ registerTier("hide", [
 // HIDE — social (window_title may contain private DMs)
 registerTier("hide", [
   "Twitter", "X", "微博", "小红书",
-  "抖音", "TikTok", "知乎", "今日头条",
+  "抖音", "TikTok", "知乎", "今日头条", "百度贴吧", "腾讯新闻",
   "Reddit", "GitHub", "酷安", "百度",
   "Instagram", "Facebook", "Pinterest", "Threads",
   "快手", "B站漫画",
   "相机", "相册", "计算器", "日历", "时钟", "手机管家",
+]);
+
+// HIDE — FTP/SSH clients (connection details are sensitive)
+registerTier("hide", [
+  "FileZilla", "WinSCP", "PuTTY", "MobaXterm",
+  "Termius", "Xshell", "SecureCRT", "Bitvise SSH Client",
+  "Cyberduck", "Transmit",
 ]);
 
 // HIDE — download / cloud / remote / meeting
@@ -416,6 +424,22 @@ function extractDocTitle(title: string): string {
   return title.trim();
 }
 
+function normalizeTitleForCompare(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s"'`“”‘’「」『』《》【】()（）[\]{}<>.,，。!！?？:：;；\-—_~·]/g, "");
+}
+
+function sanitizeDisplayTitle(appName: string, title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) return "";
+  if (normalizeTitleForCompare(trimmed) === normalizeTitleForCompare(appName)) {
+    return "";
+  }
+  return trimmed;
+}
+
 // ── App category detection for title processing ──
 
 const musicApps = new Set(
@@ -448,6 +472,9 @@ const docApps = new Set([
   "onenote", "notion", "obsidian", "typora",
   "wps office", "wps", "google docs", "google sheets", "google slides",
   "logseq",
+]);
+const readingApps = new Set([
+  "kindle", "微信读书", "多看阅读", "apple books", "calibre", "墨墨背单词",
 ]);
 const designApps = new Set([
   "figma", "sketch",
@@ -516,16 +543,19 @@ function computeDisplayTitle(appName: string, windowTitle: string): string {
     return extractMusicTitle(appName, windowTitle);
   }
   if (ideApps.has(lowerApp)) {
-    return extractIDETitle(windowTitle);
+    return sanitizeDisplayTitle(appName, extractIDETitle(windowTitle));
   }
   if (videoApps.has(lowerApp)) {
-    return stripAppSuffix(windowTitle).trim();
+    return sanitizeDisplayTitle(appName, stripAppSuffix(windowTitle).trim());
   }
   if (docApps.has(lowerApp)) {
-    return extractDocTitle(windowTitle);
+    return sanitizeDisplayTitle(appName, extractDocTitle(windowTitle));
+  }
+  if (readingApps.has(lowerApp)) {
+    return sanitizeDisplayTitle(appName, extractDocTitle(windowTitle));
   }
   if (designApps.has(lowerApp)) {
-    return extractDocTitle(windowTitle);
+    return sanitizeDisplayTitle(appName, extractDocTitle(windowTitle));
   }
 
   // Games, galgame, etc. — use title directly

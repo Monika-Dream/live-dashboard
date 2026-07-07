@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   fetchCurrent,
   fetchTimeline,
+  type DashboardRequestOptions,
   type CurrentResponse,
   type TimelineResponse,
 } from "@/lib/api";
@@ -15,16 +16,25 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function useDashboard() {
+export function useDashboard(dashboardId?: string) {
   const [current, setCurrent] = useState<CurrentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const firstLoad = useRef(true);
+  const requestOptions = useMemo<DashboardRequestOptions | undefined>(() => {
+    return dashboardId ? { dashboardId } : undefined;
+  }, [dashboardId]);
 
   useEffect(() => {
+    if (!selectedDate) setSelectedDate(todayStr());
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+
     const controller = new AbortController();
     let requestId = 0;
 
@@ -34,8 +44,8 @@ export function useDashboard() {
         setError(null);
         if (firstLoad.current) setLoading(true);
         const [cur, tl] = await Promise.all([
-          fetchCurrent(controller.signal),
-          fetchTimeline(selectedDate, controller.signal),
+          fetchCurrent(controller.signal, requestOptions),
+          fetchTimeline(selectedDate, controller.signal, requestOptions),
         ]);
         if (!controller.signal.aborted && thisRequest === requestId) {
           setCurrent(cur);
@@ -62,7 +72,7 @@ export function useDashboard() {
       controller.abort();
       clearInterval(pollId);
     };
-  }, [selectedDate]);
+  }, [requestOptions, selectedDate]);
 
   const changeDate = useCallback((date: string) => {
     setSelectedDate(date);
