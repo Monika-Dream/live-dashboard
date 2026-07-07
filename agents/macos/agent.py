@@ -1,6 +1,25 @@
 """
-Live Dashboard 的 macOS Agent。
+Live Dashboard 的 macOS Agent（单文件实现，无其他本地模块依赖）。
 负责监听前台窗口，并把使用状态上报到后端。
+
+文件内部分区（对应下方分隔注释）：
+  日志       — 控制台常开，文件日志按天轮转保留 2 天，可配置开关
+  窗口信息   — AppleScript(System Events) 读前台应用与窗口标题
+  空闲检测   — ioreg IOHIDSystem；音频播放（pmset assertions）期间豁免 AFK
+  音乐信息   — AppleScript 查询 Spotify / Music / QQ音乐 / 网易云
+  配置       — config.json 读写校验（server_url 仅允许 HTTPS 或内网 HTTP）
+  设置窗口   — tkinter；必须以子进程方式打开（--settings-dialog 入口），
+               否则 pystray(AppKit) 进程内再初始化 Tk 会崩溃（#36）
+  Reporter   — 指数退避 + 连续失败熔断暂停（非阻塞），ISO-8601 UTC 时间戳
+  托盘       — pystray（绿/橙/灰）；部分机器 AppKit 会 SIGBUS（#30），
+               config 里 enable_tray=false 可跳过托盘无头运行
+  监控循环   — 变化即报 + 定期心跳
+
+联动关系：
+  - 上报格式与后端 packages/backend/src/routes/report.ts 对齐
+    （window_title 只用于服务端生成 display_title，原文不落库）
+  - 隐私分级、应用名映射全部在服务端完成，本 agent 不做任何映射
+  - 配置示例见同目录 config.example.json；部署说明见 README.md
 
 依赖:
   pip install psutil requests pystray Pillow
