@@ -20,7 +20,8 @@ Android 客户端是一个 Kotlin + Jetpack Compose 应用，通过 Health Conne
 | **增量同步** | DataStore 持久化 `lastSyncTimestamp`，增量查询（带 5 分钟重叠窗口），服务端去重 |
 | **全量同步** | 健康页面「全量同步」按钮，强制 7 天回溯查询，防止时间戳过期 |
 | **后台静默同步** | 三态特性检测（可用/不支持/检测异常），Android 15+ 支持后台自动同步 |
-| **当前应用检测** | 基于 UsageStats best effort 识别前台应用，无 root，不读取页面内容 |
+| **当前应用检测** | 无障碍服务实时快照（主力）→ UsageEvents → UsageStats 三级回退，无 root，不读取页面内容 |
+| **后台保活** | 四层：无障碍系统级保活 → 前台服务 → AlarmManager 看门狗（被杀 ≤90s 拉活，划卡 15s 自救，开机自启）→ Worker 回退。看门狗思路致谢 PR #37 (@nmb1337) |
 | **音乐检测** | 基于 MediaSession + 通知访问读取正在播放的歌曲信息 |
 | **心跳上报** | 可选功能，10–50 秒间隔（默认 30 秒），上报在线状态、电池、当前应用和音乐信息 |
 | **电量上报** | 自动上报电池电量和充电状态 |
@@ -51,14 +52,27 @@ agents/android-app/
 │       └── java/com/monika/dashboard/
 │           ├── MainActivity.kt        # 入口 + 导航
 │           ├── DashboardApp.kt        # Application 类
+│           ├── ServerUrlPolicy.kt     # 服务器地址安全校验（HTTPS / 内网 HTTP）
 │           ├── data/
-│           │   ├── SettingsStore.kt    # DataStore 配置管理
+│           │   ├── SettingsStore.kt    # DataStore 配置管理 + Token 加密存储
 │           │   └── DebugLog.kt        # 内存日志（UI 查看）
 │           ├── health/
 │           │   ├── HealthConnectManager.kt  # HC 权限、读取、特性检测
-│           │   └── HealthSyncWorker.kt      # WorkManager 同步任务
+│           │   ├── HealthDataTypes.kt       # 18 种健康数据类型定义
+│           │   └── HealthSyncWorker.kt      # WorkManager 同步任务（分批上传+游标保护）
+│           ├── monitor/
+│           │   ├── AccessibilityCurrentAppStore.kt  # 无障碍前台快照存取
+│           │   ├── CurrentAppDetector.kt            # 前台检测三级回退
+│           │   └── MusicMetadataProvider.kt         # MediaSession 音乐信息
 │           ├── network/
-│           │   └── ReportClient.kt    # HTTP 上报客户端
+│           │   └── ReportClient.kt    # HTTP 上报客户端（共享连接池）
+│           ├── service/
+│           │   ├── DashboardAccessibilityService.kt      # 无障碍服务（保活底座）
+│           │   ├── DashboardHeartbeatService.kt          # 前台服务心跳循环
+│           │   ├── DashboardNotificationListenerService.kt # 通知使用权入口
+│           │   ├── HeartbeatReporter.kt                  # 心跳单次执行体
+│           │   ├── HeartbeatWorker.kt                    # WorkManager 回退
+│           │   └── ServiceWatchdogReceiver.kt            # 看门狗闹钟 + 开机自启
 │           └── ui/screens/
 │               ├── SetupScreen.kt     # 服务器配置
 │               ├── StatusScreen.kt    # 状态总览 + 权限诊断
@@ -78,6 +92,25 @@ cd agents/android-app
 ./gradlew assembleDebug
 # 产物: app/build/outputs/apk/debug/app-debug.apk
 ```
+
+### 签名 Release 构建
+
+```bash
+# 1. 生成签名密钥（一次性）
+keytool -genkeypair -keystore release.keystore -alias live-dashboard   -keyalg RSA -keysize 2048 -validity 10000
+
+# 2. 在 agents/android-app/ 下创建 keystore.properties（已 gitignore，不会入库）：
+#    storeFile=release.keystore
+#    storePassword=你的密码
+#    keyAlias=live-dashboard
+#    keyPassword=你的密码
+
+# 3. 构建
+./gradlew assembleRelease
+# 产物: app/build/outputs/apk/release/app-release.apk（已签名 + R8 混淆）
+```
+
+没有 keystore.properties 时 `assembleRelease` 会走无签名构建，clone 下来仍可直接编译。
 
 详见 [`BUILD.md`](agents/android-app/BUILD.md)。
 
