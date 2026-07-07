@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 前台应用识别依赖 Usage Stats，必须先在清单里声明，这样系统设置里才会出现授权入口。 -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -83,6 +84,30 @@
             android:name=".service.DashboardHeartbeatService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- 看门狗 + 开机自启：只收系统广播和自家闹钟，无需 exported -->
+        <receiver
+            android:name=".service.ServiceWatchdogReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            DashboardApp 实现了 Configuration.Provider（按需初始化 WorkManager），
+            必须移除默认的启动期初始化器，否则自定义配置会被抢跑（lint 致命项）
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
         <service
             android:name=".service.DashboardAccessibilityService"

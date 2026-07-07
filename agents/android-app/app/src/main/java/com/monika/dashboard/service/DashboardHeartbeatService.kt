@@ -49,12 +49,17 @@ class DashboardHeartbeatService : Service() {
 
         fun stop(context: Context) {
             HeartbeatWorker.cancel(context)
+            ServiceWatchdogReceiver.cancel(context)
             context.stopService(Intent(context, DashboardHeartbeatService::class.java))
         }
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
+
+    /** 循环最近一次读到的监听开关，onDestroy/onTaskRemoved 里没法挂起读 DataStore。 */
+    @Volatile
+    private var monitoringActive = false
 
     override fun onCreate() {
         super.onCreate()
@@ -77,8 +82,26 @@ class DashboardHeartbeatService : Service() {
     override fun onDestroy() {
         loopJob?.cancel()
         serviceScope.cancel()
-        DebugLog.log("心跳服务", "后台监听服务已停止")
+        if (monitoringActive) {
+            // 被系统/厂商杀掉而非用户主动关闭 → 排短闹钟自救
+            ServiceWatchdogReceiver.schedule(applicationContext, 20_000L)
+            DebugLog.log("心跳服务", "服务被销毁，已安排看门狗恢复")
+        } else {
+            DebugLog.log("心跳服务", "后台监听服务已停止")
+        }
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // MIUI/HyperOS 划卡 = 强杀进程，这里排一个 15s 的快速恢复闹钟
+        if (monitoringActive) {
+            ServiceWatchdogReceiver.schedule(
+                applicationContext,
+                ServiceWatchdogReceiver.RECOVERY_DELAY_MS
+            )
+            DebugLog.log("心跳服务", "任务被移除，已安排看门狗恢复")
+        }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -89,7 +112,9 @@ class DashboardHeartbeatService : Service() {
             val settings = SettingsStore(applicationContext)
             while (true) {
                 val enabled = settings.monitoringEnabled.first()
+                monitoringActive = enabled
                 if (!enabled) {
+                    ServiceWatchdogReceiver.cancel(applicationContext)
                     stopSelf()
                     break
                 }
@@ -99,6 +124,16 @@ class DashboardHeartbeatService : Service() {
                         HeartbeatWorker.MIN_INTERVAL_SECONDS,
                         HeartbeatWorker.MAX_INTERVAL_SECONDS
                     )
+
+                // 每轮都给看门狗续命：服务被厂商杀掉后，这个已排好的闹钟
+                // 会在最多 max(90s, 3×间隔) 内把服务重新拉起来
+                ServiceWatchdogReceiver.schedule(
+                    applicationContext,
+                    maxOf(
+                        ServiceWatchdogReceiver.MIN_WATCHDOG_DELAY_MS,
+                        intervalSec * 3_000L
+                    )
+                )
 
                 val result = HeartbeatReporter.runOnce(applicationContext, intervalSec)
                 updateNotification(result.summary, intervalSec)

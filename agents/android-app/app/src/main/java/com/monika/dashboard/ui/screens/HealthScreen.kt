@@ -15,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -285,7 +285,7 @@ fun HealthScreen(settings: SettingsStore) {
             }
         }
 
-        HorizontalDivider(color = Border, thickness = 1.dp)
+        Divider(color = Border, thickness = 1.dp)
 
         // Data types list
         Text(
