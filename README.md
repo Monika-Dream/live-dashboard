@@ -105,15 +105,37 @@ packages/backend/
 
 ## 使用方式
 
+### Docker 一键部署（推荐）
+
+本分支与 main 共用同一套后端与部署方式，镜像自动构建为 `blossom-letter` 标签：
+
+```bash
+TOKEN=$(openssl rand -hex 16)
+SECRET=$(openssl rand -hex 32)
+
+docker run -d --name live-dashboard-blossom \
+  -p 3000:3000 \
+  -v dashboard_data:/data \
+  -e HASH_SECRET=$SECRET \
+  -e DEVICE_TOKEN_1=$TOKEN:my-pc:MyPC:windows \
+  ghcr.io/monika-dream/live-dashboard:blossom-letter
+
+# 打开 http://localhost:3000
+```
+
+### 从源码构建
+
 ```bash
 # 克隆此分支
 git clone -b redesign/blossom-letter https://github.com/Monika-Dream/live-dashboard.git
+cd live-dashboard
 
-# 后续的 .env 配置、后端启动、前端构建等步骤与 main 分支完全一致
-# 参阅 main 分支 README：https://github.com/Monika-Dream/live-dashboard#readme
+# 与 main 分支完全一致：docker compose up -d --build，
+# 或参阅 main 分支 README：https://github.com/Monika-Dream/live-dashboard#readme
 ```
 
-如需启用 AI 每日总结，额外在 `.env` 中添加 `AI_API_URL`、`AI_API_KEY`（和可选的 `AI_MODEL`）即可。
+如需启用 AI 每日总结，额外添加 `AI_API_URL`、`AI_API_KEY`（和可选的 `AI_MODEL`）环境变量即可。
+main 的新能力（多面板聚合 `EXTERNAL_DASHBOARDS`、自定义应用映射 `custom-mappings.json`、私密应用匿名化）本分支同样支持。
 
 ## 许可证
 
