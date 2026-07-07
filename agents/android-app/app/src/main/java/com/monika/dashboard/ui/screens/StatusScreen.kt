@@ -128,6 +128,14 @@ fun StatusScreen() {
             }
         }
 
+        Text(
+            text = "授权了却没有数据？多半是手环 App 没把数据写进 Health Connect：" +
+                "去手环 App（如小米运动健康）里检查 Health Connect 连接开关——" +
+                "小米手机重启后该连接可能静默断开，需要重新允许一次。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
         ServiceStatusRow("电池优化已忽略", batteryOptimized) {
             try {
                 context.startActivity(
