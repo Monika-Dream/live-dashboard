@@ -929,7 +929,23 @@ def main() -> None:
         # Apply log preference
         set_file_logging(cfg.get("enable_log", False))
         if cfg.get("enable_log"):
-            log.info("HTTP: %s", "HTTPS" if cfg["server_url"].startswith("https") else "HTTP (内网)")
+            server_url = cfg.get("server_url") or ""
+            if not isinstance(server_url, str):
+                server_url = ""
+            log.info("HTTP: %s", "HTTPS" if server_url.startswith("https") else "HTTP (内网)")
+
+        # Clean up legacy scheduled task autostart (migrated to registry-based)
+        # This is critical to prevent duplicate autostart entries
+        if _has_legacy_startup_task():
+            log.info("Removing legacy scheduled task autostart...")
+            if not _remove_legacy_startup_task():
+                show_message(
+                    "Live Dashboard",
+                    "检测到旧版自启动计划任务，但删除失败。\n"
+                    "请手动删除任务计划程序中的 'LiveDashboardAgent' 任务，\n"
+                    "否则可能出现重复启动。",
+                    error=True,
+                )
 
         reporter = Reporter(cfg["server_url"], cfg["token"])
 
