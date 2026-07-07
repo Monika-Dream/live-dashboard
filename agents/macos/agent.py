@@ -1,19 +1,21 @@
 """
-Live Dashboard — macOS Agent
-Monitors the foreground window and reports app usage to the dashboard backend.
+Live Dashboard 的 macOS Agent。
+负责监听前台窗口，并把使用状态上报到后端。
 
-Requirements:
+依赖:
   pip install psutil requests pystray Pillow
 
-Permissions:
-  System Preferences → Privacy & Security → Accessibility → add Terminal
+权限:
+  系统设置 → 隐私与安全性 → 辅助功能 → 添加 Terminal
 """
 
+from datetime import datetime, timezone
 import ipaddress
 import json
 import logging
 import logging.handlers
 import os
+import shlex
 import re
 import socket
 import subprocess
@@ -32,7 +34,7 @@ else:
     base_dir = Path(__file__).parent
 
 # ---------------------------------------------------------------------------
-# Logging — console always; file handler toggleable (2-day rotation)
+# 日志：始终输出控制台，文件日志可按配置开关（按天轮转，保留 2 天）
 # ---------------------------------------------------------------------------
 LOG_FILE = base_dir / "agent.log"
 _file_handler: logging.Handler | None = None
@@ -46,7 +48,7 @@ log = logging.getLogger("agent")
 
 
 def set_file_logging(enabled: bool) -> None:
-    """Toggle file logging with 2-day rotation."""
+    """按配置开关文件日志，并按天轮转保留 2 天。"""
     global _file_handler
     if enabled and _file_handler is None:
         _file_handler = logging.handlers.TimedRotatingFileHandler(
@@ -63,7 +65,7 @@ def set_file_logging(enabled: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
-# macOS window info via AppleScript
+# 通过 AppleScript 读取前台窗口信息
 # ---------------------------------------------------------------------------
 _APPLESCRIPT = """\
 tell application "System Events"
@@ -79,7 +81,7 @@ end tell
 
 
 def get_foreground_info() -> tuple[str, str] | None:
-    """Return (process_name, window_title) of the current foreground window."""
+    """返回当前前台窗口的应用名和窗口标题。"""
     try:
         result = subprocess.run(
             ["osascript", "-e", _APPLESCRIPT],
@@ -100,10 +102,10 @@ def get_foreground_info() -> tuple[str, str] | None:
 
 
 # ---------------------------------------------------------------------------
-# Idle detection via IOKit
+# 通过 IOKit 检测空闲时间
 # ---------------------------------------------------------------------------
 def get_idle_seconds() -> float:
-    """Return seconds since last keyboard/mouse input using ioreg."""
+    """通过 ioreg 返回距离上次键鼠输入经过了多少秒。"""
     try:
         result = subprocess.run(
             ["ioreg", "-c", "IOHIDSystem", "-d", "4"],
@@ -122,10 +124,10 @@ def get_idle_seconds() -> float:
 
 
 # ---------------------------------------------------------------------------
-# Audio playback detection via power assertions
+# 通过电源断言检测是否有音频播放
 # ---------------------------------------------------------------------------
 def is_audio_playing() -> bool:
-    """Check if any audio output is currently active on macOS."""
+    """检查 macOS 当前是否存在活跃音频输出。"""
     try:
         result = subprocess.run(
             ["pmset", "-g", "assertions"],
@@ -143,7 +145,7 @@ def is_audio_playing() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Fullscreen detection via AXFullScreen attribute
+# 通过 AXFullScreen 属性检测前台窗口是否全屏
 # ---------------------------------------------------------------------------
 _FULLSCREEN_SCRIPT = """\
 tell application "System Events"
@@ -159,7 +161,7 @@ return "NO"
 
 
 def is_foreground_fullscreen() -> bool:
-    """Check if the foreground window is in macOS fullscreen mode."""
+    """检查当前前台窗口是否处于 macOS 全屏模式。"""
     try:
         result = subprocess.run(
             ["osascript", "-e", _FULLSCREEN_SCRIPT],
@@ -171,7 +173,7 @@ def is_foreground_fullscreen() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Battery info
+# 电池信息
 # ---------------------------------------------------------------------------
 def get_battery_extra() -> dict:
     try:
@@ -187,7 +189,7 @@ def get_battery_extra() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Music detection via AppleScript
+# 通过 AppleScript 获取音乐播放信息
 # ---------------------------------------------------------------------------
 _MUSIC_APPS = {
     "Spotify": """\
@@ -262,7 +264,7 @@ def get_music_info() -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# Config
+# 配置
 # ---------------------------------------------------------------------------
 CONFIG_PATH = base_dir / "config.json"
 
@@ -356,7 +358,7 @@ def validate_config(cfg: dict) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Settings Dialog
+# 设置窗口
 # ---------------------------------------------------------------------------
 def show_settings_dialog(current_config: dict | None = None) -> dict | None:
     try:
@@ -437,8 +439,30 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
     return result[0]
 
 
+def open_settings_in_subprocess() -> bool:
+    """
+    Open settings UI in a separate process to avoid pystray(AppKit) + Tk re-init
+    crashes on macOS. Returns True when config was saved.
+    """
+    cmd: list[str] = []
+    try:
+        if getattr(sys, "frozen", False):
+            cmd = [sys.executable, "--settings-dialog"]
+        else:
+            cmd = [sys.executable, str(Path(__file__).resolve()), "--settings-dialog"]
+        result = subprocess.run(cmd, check=False)
+        return result.returncode == 0
+    except Exception as e:
+        log.error(
+            "Failed to open settings subprocess: %s (cmd=%s)",
+            e,
+            " ".join(shlex.quote(c) for c in cmd),
+        )
+        return False
+
+
 # ---------------------------------------------------------------------------
-# Reporter
+# 上报器
 # ---------------------------------------------------------------------------
 class Reporter:
     MAX_BACKOFF = 60
@@ -454,12 +478,20 @@ class Reporter:
         })
         self._consecutive_failures = 0
         self._current_backoff = 0
+        self._pause_until = 0.0
 
     def send(self, app_id: str, window_title: str, extra: dict | None = None) -> bool:
+        if self.pause_remaining > 0:
+            return False
+
         payload = {
             "app_id": app_id,
             "window_title": window_title[:256],
-            "timestamp": int(time.time() * 1000),
+            "timestamp": (
+                datetime.now(timezone.utc)
+                .isoformat(timespec="milliseconds")
+                .replace("+00:00", "Z")
+            ),
         }
         if extra:
             payload["extra"] = extra
@@ -468,6 +500,7 @@ class Reporter:
             if resp.status_code in (200, 201, 409):
                 self._consecutive_failures = 0
                 self._current_backoff = 0
+                self._pause_until = 0.0
                 return True
             log.warning("Server %d: %s", resp.status_code, resp.text[:200])
         except requests.RequestException as e:
@@ -480,7 +513,7 @@ class Reporter:
         )
         if self._consecutive_failures >= self.PAUSE_AFTER_FAILURES:
             log.warning("Failed %d times, pausing %ds", self._consecutive_failures, self.PAUSE_DURATION)
-            time.sleep(self.PAUSE_DURATION)
+            self._pause_until = time.monotonic() + self.PAUSE_DURATION
             self._consecutive_failures = 0
             self._current_backoff = 0
         return False
@@ -489,9 +522,21 @@ class Reporter:
     def backoff(self) -> float:
         return self._current_backoff
 
+    @property
+    def pause_remaining(self) -> float:
+        remaining = self._pause_until - time.monotonic()
+        if remaining <= 0:
+            self._pause_until = 0.0
+            return 0.0
+        return remaining
+
+    @property
+    def retry_delay(self) -> float:
+        return self.pause_remaining or self.backoff
+
 
 # ---------------------------------------------------------------------------
-# System Tray
+# 系统托盘
 # ---------------------------------------------------------------------------
 shutdown_event = threading.Event()
 
@@ -508,7 +553,7 @@ def _make_tray_icon(color: str = "green") -> "PIL.Image.Image":
 
 
 class TrayAgent:
-    """System tray with Chinese UI, hover tooltip, and integrated settings."""
+    """带中文菜单、悬浮提示和设置入口的系统托盘。"""
 
     def __init__(self):
         import pystray
@@ -551,12 +596,16 @@ class TrayAgent:
             self._current_app = app_name
         if self._icon:
             color = {"在线": "green", "AFK": "orange"}.get(status, "gray")
-            self._icon.icon = self._icons[color]
-            tip = "Live Dashboard"
-            if app_name:
-                tip += f"\n当前: {app_name}"
-            tip += f"\n{status}"
-            self._icon.title = tip[:127]
+            try:
+                self._icon.icon = self._icons[color]
+                tip = "Live Dashboard"
+                if app_name:
+                    tip += f"\n当前: {app_name}"
+                tip += f"\n{status}"
+                self._icon.title = tip[:127]
+                self._icon.update_menu()
+            except Exception as e:
+                log.debug("Tray refresh failed: %s", e)
 
     def _toggle_log(self):
         enabled = _file_handler is None
@@ -597,7 +646,7 @@ class TrayAgent:
 
 
 # ---------------------------------------------------------------------------
-# Monitor loop
+# 监控循环
 # ---------------------------------------------------------------------------
 def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None:
     interval = cfg["interval_seconds"]
@@ -613,6 +662,8 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
         "Monitoring — interval=%ds, heartbeat=%ds, idle=%ds",
         interval, heartbeat_interval, idle_threshold,
     )
+    if tray:
+        tray.update_status("在线")
 
     while not shutdown_event.is_set():
         try:
@@ -638,6 +689,9 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
                     extra = get_battery_extra()
                     if reporter.send("idle", "User is away", extra):
                         last_report_time = now
+                    elif reporter.retry_delay > 0:
+                        shutdown_event.wait(reporter.retry_delay)
+                        continue
                 shutdown_event.wait(interval)
                 continue
 
@@ -648,7 +702,7 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
 
             app_id, title = info
 
-            # Update tray tooltip on EVERY cycle for instant feedback
+            # 托盘提示每轮都刷新，让当前状态反馈更及时。
             if tray:
                 tray.update_status("在线", app_id)
 
@@ -667,8 +721,8 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
                     last_report_time = now
                     if changed:
                         log.info("Reported: %s — %s", app_id, title[:80])
-                elif reporter.backoff > 0:
-                    shutdown_event.wait(reporter.backoff)
+                elif reporter.retry_delay > 0:
+                    shutdown_event.wait(reporter.retry_delay)
                     continue
 
             shutdown_event.wait(interval)
@@ -681,25 +735,28 @@ def _monitor_loop(cfg: dict, reporter: Reporter, tray: TrayAgent | None) -> None
 
 
 # ---------------------------------------------------------------------------
-# Main
+# 主入口
 # ---------------------------------------------------------------------------
 def main() -> None:
     log.info("Live Dashboard macOS Agent")
+
+    if "--settings-dialog" in sys.argv:
+        cfg = load_config()
+        new_cfg = show_settings_dialog(cfg)
+        raise SystemExit(0 if new_cfg is not None else 1)
 
     while True:
         cfg = load_config()
 
         if not cfg.get("server_url") or not cfg.get("token") or cfg.get("token") == "YOUR_TOKEN_HERE":
-            cfg = show_settings_dialog(cfg)
-            if cfg is None:
+            if not open_settings_in_subprocess():
                 return
             cfg = load_config()
 
         err = validate_config(cfg)
         if err:
             log.warning("Invalid config: %s", err)
-            cfg = show_settings_dialog(cfg)
-            if cfg is None:
+            if not open_settings_in_subprocess():
                 return
             cfg = load_config()
             continue
@@ -727,8 +784,7 @@ def main() -> None:
 
             if tray.settings_requested:
                 shutdown_event.clear()
-                new_cfg = show_settings_dialog(cfg)
-                if new_cfg is None:
+                if not open_settings_in_subprocess():
                     continue
                 continue
             else:
