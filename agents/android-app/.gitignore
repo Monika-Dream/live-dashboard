@@ -1,0 +1,24 @@
+# Build outputs
+/build/
+/app/build/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.gradle/
+local.properties
+
+# Signing — NEVER commit
+signing/
+*.keystore
+*.jks
+keystore.properties
+
+# Heap dumps
+*.hprof
+
+# OS
+.DS_Store
+Thumbs.db

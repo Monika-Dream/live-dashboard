@@ -1,5 +1,6 @@
 package com.monika.dashboard.network
 
+import com.monika.dashboard.DashboardApp
 import com.monika.dashboard.isAllowedDashboardUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -9,27 +10,23 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 
 /**
  * 负责向后端上报活动和健康数据。
  * 所有方法都是同步 IO，只能在后台线程中调用。
+ *
+ * 复用 [DashboardApp.httpClient] 共享连接池，不再每次创建/销毁 OkHttpClient。
  */
 class ReportClient(
     private val serverUrl: String,
-    private val token: String
+    private val token: String,
+    private val client: OkHttpClient = DashboardApp.httpClient
 ) {
     init {
         require(isAllowedDashboardUrl(serverUrl)) {
             "Only HTTPS or local/private HTTP allowed"
         }
     }
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .build()
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -122,11 +119,6 @@ class ReportClient(
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    fun shutdown() {
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
     }
 
     data class HealthRecord(

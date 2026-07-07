@@ -63,7 +63,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // Encrypted SharedPreferences
-    implementation("androidx.security:security-crypto:1.0.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // OkHttp
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

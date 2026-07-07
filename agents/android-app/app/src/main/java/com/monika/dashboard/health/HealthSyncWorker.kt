@@ -23,6 +23,8 @@ class HealthSyncWorker(
         private const val WORK_NAME_ONCE = "health_sync_once"
         private const val KEY_FOREGROUND = "foreground"
         private const val KEY_FULL_SYNC = "full_sync"
+        /** 单次上传批次大小，避免超大 JSON 请求体导致 OOM 或超时。 */
+        private const val UPLOAD_BATCH_SIZE = 500
 
         fun schedule(context: Context, intervalMinutes: Int) {
             val safeInterval = intervalMinutes.coerceIn(15, 60).toLong()
@@ -177,30 +179,62 @@ class HealthSyncWorker(
 
             DebugLog.log("健康", "读取完成, 共 ${records.size} 条")
 
+            // 只有所有类型都成功读取时才推进游标，部分失败时保持原位，
+            // 下次同步会重新读取失败类型的数据，避免静默丢失。
+            val canAdvanceCursor = readResult.allTypesSucceeded
+
             if (records.isEmpty()) {
                 DebugLog.log("健康", "无新数据")
                 Log.i(TAG, "No new records")
-                settings.setLastSyncTimestamp(until.toEpochMilli())
+                if (canAdvanceCursor) {
+                    settings.setLastSyncTimestamp(until.toEpochMilli())
+                }
                 Result.success()
             } else {
-                val result = client.reportHealthData(records)
-                if (result.isSuccess) {
-                    settings.setLastSyncTimestamp(until.toEpochMilli())
+                // 分批上传，每批最多 UPLOAD_BATCH_SIZE 条。
+                val batches = records.chunked(UPLOAD_BATCH_SIZE)
+                var uploadedCount = 0
+                var uploadFailed = false
+                for ((idx, batch) in batches.withIndex()) {
+                    val result = client.reportHealthData(batch)
+                    if (result.isSuccess) {
+                        uploadedCount += batch.size
+                        if (batches.size > 1) {
+                            DebugLog.log("健康", "批次 ${idx + 1}/${batches.size}: ${batch.size} 条已上传")
+                        }
+                    } else {
+                        uploadFailed = true
+                        DebugLog.log("健康", "批次 ${idx + 1} 上传失败: ${result.exceptionOrNull()?.message}")
+                        Log.w(TAG, "Batch ${idx + 1} failed: ${result.exceptionOrNull()?.message}")
+                        break
+                    }
+                }
+
+                if (uploadFailed) {
+                    if (uploadedCount > 0) {
+                        DebugLog.log("健康", "已部分上传 $uploadedCount/${records.size} 条，稍后重试剩余")
+                    }
+                    DebugLog.log("健康", "同步失败")
+                    Result.retry()
+                } else {
+                    if (canAdvanceCursor) {
+                        settings.setLastSyncTimestamp(until.toEpochMilli())
+                    } else {
+                        DebugLog.log("健康", "部分类型读取失败，已上传可用数据但未推进游标")
+                    }
                     DebugLog.log("健康", "已同步 ${records.size} 条记录")
                     Log.i(TAG, "Synced ${records.size} records")
                     Result.success()
-                } else {
-                    DebugLog.log("健康", "同步失败: ${result.exceptionOrNull()?.message}")
-                    Log.w(TAG, "Sync failed: ${result.exceptionOrNull()?.message}")
-                    Result.retry()
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             DebugLog.log("健康", "同步异常: ${e.message}")
             Log.e(TAG, "Sync error", e)
             Result.retry()
         } finally {
-            client.shutdown()
+            // 共享 OkHttpClient，不再单独 shutdown
         }
     }
 }

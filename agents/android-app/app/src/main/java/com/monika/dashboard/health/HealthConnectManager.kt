@@ -30,9 +30,15 @@ data class HealthReadResult(
     val records: List<ReportClient.HealthRecord>,
     val attemptedTypes: Int,
     val deniedTypes: Int,
+    /** 读取时超时或抛异常（非权限）的类型数。 */
+    val failedTypes: Int = 0,
 ) {
     val allAttemptedTypesDenied: Boolean
-        get() = attemptedTypes > 0 && deniedTypes >= attemptedTypes && records.isEmpty()
+        get() = attemptedTypes > 0 && deniedTypes == attemptedTypes && failedTypes == 0 && records.isEmpty()
+
+    /** 是否所有已尝试的类型都成功完成（无超时/异常），权限被拒不算临时失败。 */
+    val allTypesSucceeded: Boolean
+        get() = attemptedTypes > 0 && failedTypes == 0
 }
 
 class HealthConnectManager(private val context: Context) {
@@ -152,6 +158,7 @@ class HealthConnectManager(private val context: Context) {
 
         val allResults = mutableListOf<ReportClient.HealthRecord>()
         var securityDeniedCount = 0
+        var readFailedCount = 0
         for (type in permittedTypes) {
             try {
                 val results = withTimeout(15_000L) {
@@ -162,6 +169,7 @@ class HealthConnectManager(private val context: Context) {
                     allResults.addAll(results)
                 }
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                readFailedCount++
                 DebugLog.log("健康", "${type.displayName}: 超时，跳过")
                 Log.w(TAG, "Timeout reading ${type.key}")
             } catch (e: SecurityException) {
@@ -171,6 +179,7 @@ class HealthConnectManager(private val context: Context) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                readFailedCount++
                 DebugLog.log("健康", "${type.displayName}: 失败 ${e.message}")
                 Log.w(TAG, "Failed to read ${type.key}: ${e.message}")
             }
@@ -178,10 +187,14 @@ class HealthConnectManager(private val context: Context) {
         if (securityDeniedCount > 0) {
             DebugLog.log("健康", "权限不足，跳过 $securityDeniedCount 种类型")
         }
+        if (readFailedCount > 0) {
+            DebugLog.log("健康", "读取失败/超时 $readFailedCount 种类型")
+        }
         return HealthReadResult(
             records = allResults,
             attemptedTypes = permittedTypes.size,
             deniedTypes = securityDeniedCount,
+            failedTypes = readFailedCount,
         )
     }
 
@@ -354,20 +367,28 @@ class HealthConnectManager(private val context: Context) {
             ReportClient.HealthRecord(
                 type = "respiratory_rate",
                 value = record.rate,
-                unit = "bpm",
+                unit = "breaths/min",
                 timestamp = formatInstant(record.time)
             )
         }
     }
 
     private suspend fun readBloodPressure(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        return readAllRecords(BloodPressureRecord::class, timeRange).map { record ->
-            // 目前后端只接收单值血压，这里先以上压作为主值。
-            ReportClient.HealthRecord(
-                type = "blood_pressure",
-                value = record.systolic.inMillimetersOfMercury,
-                unit = "mmHg",
-                timestamp = formatInstant(record.time)
+        return readAllRecords(BloodPressureRecord::class, timeRange).flatMap { record ->
+            val ts = formatInstant(record.time)
+            listOf(
+                ReportClient.HealthRecord(
+                    type = "blood_pressure_systolic",
+                    value = record.systolic.inMillimetersOfMercury,
+                    unit = "mmHg",
+                    timestamp = ts
+                ),
+                ReportClient.HealthRecord(
+                    type = "blood_pressure_diastolic",
+                    value = record.diastolic.inMillimetersOfMercury,
+                    unit = "mmHg",
+                    timestamp = ts
+                )
             )
         }
     }
@@ -442,10 +463,11 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readNutrition(timeRange: TimeRangeFilter): List<ReportClient.HealthRecord> {
-        return readAllRecords(NutritionRecord::class, timeRange).map { record ->
+        return readAllRecords(NutritionRecord::class, timeRange).mapNotNull { record ->
+            val carbs = record.totalCarbohydrate?.inGrams ?: return@mapNotNull null
             ReportClient.HealthRecord(
                 type = "nutrition",
-                value = record.totalCarbohydrate?.inGrams ?: 0.0,
+                value = carbs,
                 unit = "g",
                 timestamp = formatInstant(record.startTime),
                 endTime = formatInstant(record.endTime)

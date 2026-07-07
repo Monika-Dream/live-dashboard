@@ -22,13 +22,16 @@ import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.health.HealthConnectManager
 import com.monika.dashboard.health.HealthSyncWorker
 import com.monika.dashboard.network.ReportClient
+import com.monika.dashboard.service.DashboardHeartbeatService
 import com.monika.dashboard.ui.screens.HealthScreen
 import com.monika.dashboard.ui.screens.SetupScreen
 import com.monika.dashboard.ui.screens.StatusScreen
 import com.monika.dashboard.ui.theme.DashboardTheme
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -40,6 +43,7 @@ class MainActivity : ComponentActivity() {
         settings = SettingsStore(applicationContext)
         enableEdgeToEdge()
         requestNotificationPermission()
+        restoreHeartbeatServiceIfNeeded()
 
         setContent {
             DashboardTheme {
@@ -67,6 +71,28 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /**
+     * 重启或 APP 升级后，如果用户之前开启了心跳监听，自动恢复前台服务。
+     * DashboardHeartbeatService.start() 内部是幂等的。
+     */
+    private fun restoreHeartbeatServiceIfNeeded() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val enabled = settings.monitoringEnabled.first()
+                val url = settings.serverUrl.first()
+                val token = settings.getToken()
+                if (enabled && url.isNotBlank() && !token.isNullOrBlank()) {
+                    DashboardHeartbeatService.start(applicationContext)
+                }
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Best-effort restore — user can re-enable manually
+                android.util.Log.w("MainActivity", "Failed to restore heartbeat service", e)
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,12 +109,7 @@ private fun DashboardTopBar(settings: SettingsStore) {
             if (url.isNotEmpty() && !token.isNullOrEmpty() && SettingsStore.validateUrl(url)) {
                 val result = withContext(Dispatchers.IO) {
                     try {
-                        val client = ReportClient(url, token)
-                        try {
-                            client.testConnection()
-                        } finally {
-                            client.shutdown()
-                        }
+                        ReportClient(url, token).testConnection()
                     } catch (_: Exception) {
                         Result.failure<Unit>(Exception("error"))
                     }

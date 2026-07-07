@@ -28,6 +28,8 @@ object HeartbeatReporter {
     private const val TAG = "HeartbeatReporter"
     private const val USAGE_EVENTS_LOOKBACK_FLOOR_MS = 2 * 60 * 1000L
     private const val USAGE_STATS_LOOKBACK_MS = 12 * 60 * 60 * 1000L
+    /** 无障碍快照的有效期——超过此时间认为数据过期，退回 UsageStats。 */
+    private const val ACCESSIBILITY_MAX_AGE_MS = 120 * 1000L
 
     suspend fun runOnce(
         context: Context,
@@ -102,7 +104,7 @@ object HeartbeatReporter {
             Log.e(TAG, summary, e)
             HeartbeatRunResult(summary = summary)
         } finally {
-            runCatching { client?.shutdown() }
+            // 共享 OkHttpClient，不再单独 shutdown
         }
     }
 
@@ -115,7 +117,7 @@ object HeartbeatReporter {
             (intervalSec.toLong() + 30L) * 1000L
         )
         detector.detectCurrentApp(
-            accessibilitySnapshotMaxAgeMs = USAGE_STATS_LOOKBACK_MS,
+            accessibilitySnapshotMaxAgeMs = ACCESSIBILITY_MAX_AGE_MS,
             usageEventsWindowMs = usageWindowMs,
             usageStatsWindowMs = USAGE_STATS_LOOKBACK_MS,
         )
