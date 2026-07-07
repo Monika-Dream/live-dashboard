@@ -99,6 +99,7 @@ echo "Token: $TOKEN  ← Agent 配置用"
 - [安全设计](https://github.com/Monika-Dream/live-dashboard/wiki/安全设计) — 安全特性
 - [自定义](https://github.com/Monika-Dream/live-dashboard/wiki/自定义) — 显示名、元数据、主题色
 - [本地开发](https://github.com/Monika-Dream/live-dashboard/wiki/本地开发) — 从源码构建
+- [手环/手表健康数据接入指南](docs/wearables-health-guide.md) — 小米/华为/WearOS/Apple Watch 各家路径、常见坑、故障排查
 
 ## 自定义应用映射
 
