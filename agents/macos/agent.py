@@ -275,6 +275,9 @@ _DEFAULT_CFG = {
     "heartbeat_seconds": 60,
     "idle_threshold_seconds": 300,
     "enable_log": False,
+    # 部分机器上 pystray(AppKit) 会直接 SIGBUS（如 M2 Max + Tahoe，见 #30），
+    # Python 层接不住这种硬崩溃；设为 false 可跳过托盘以无托盘模式运行。
+    "enable_tray": True,
 }
 
 
@@ -766,12 +769,15 @@ def main() -> None:
         reporter = Reporter(cfg["server_url"], cfg["token"])
 
         tray: TrayAgent | None = None
-        try:
-            tray = TrayAgent()
-        except ImportError:
-            log.warning("pystray/Pillow not installed, running without tray")
-        except Exception as e:
-            log.warning("Tray init failed: %s", e)
+        if not cfg.get("enable_tray", True):
+            log.info("enable_tray=false，以无托盘模式运行")
+        else:
+            try:
+                tray = TrayAgent()
+            except ImportError:
+                log.warning("pystray/Pillow not installed, running without tray")
+            except Exception as e:
+                log.warning("Tray init failed: %s", e)
 
         if tray:
             monitor = threading.Thread(
