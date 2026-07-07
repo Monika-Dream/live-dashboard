@@ -465,11 +465,23 @@ const designApps = new Set([
 
 // ── Main display_title processor ──
 
+// 超长标题（如 DevTools 带完整 URL 的窗口名）会撑爆前端布局，统一在源头截断
+const MAX_DISPLAY_TITLE_LENGTH = 120;
+
+function capDisplayTitle(title: string): string {
+  if (title.length <= MAX_DISPLAY_TITLE_LENGTH) return title;
+  return title.slice(0, MAX_DISPLAY_TITLE_LENGTH - 1).trimEnd() + "…";
+}
+
 /**
  * Generate a safe display_title from app_name + window_title.
  * Returns empty string if the title should be hidden.
  */
 export function processDisplayTitle(appName: string, windowTitle: string): string {
+  return capDisplayTitle(computeDisplayTitle(appName, windowTitle));
+}
+
+function computeDisplayTitle(appName: string, windowTitle: string): string {
   if (!appName || !windowTitle) return "";
 
   const tier = getPrivacyTier(appName);
@@ -483,6 +495,9 @@ export function processDisplayTitle(appName: string, windowTitle: string): strin
     // Strip browser suffix first
     const pageTitle = stripBrowserSuffix(windowTitle);
     if (!pageTitle) return "";
+
+    // DevTools 窗口标题携带完整 URL（常含 percent-encoding），没有展示价值
+    if (/^DevTools\b/i.test(pageTitle)) return "开发者工具";
 
     // Sensitive content → hide
     if (isSensitiveBrowserTitle(pageTitle)) return "";

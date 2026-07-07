@@ -607,6 +607,15 @@ body {
   font-style: italic;
 }
 
+/* Hero 状态文案：超长时最多 3 行省略，长单词/URL 允许任意断行 */
+.hero-status-text {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Now Summary — pinned at top of timeline */
 .now-summary {
   padding: 10px 12px;
@@ -642,6 +651,8 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0; /* flex 子项不加这个 ellipsis 不生效，长标题会把行撑出容器 */
 }
 
 /* ════════════════════════════════════════

@@ -36,7 +36,7 @@ export default function CurrentStatus({ devices }: Props) {
             </div>
 
             {/* Main description */}
-            <p className="text-xl font-medium text-[var(--color-text)] leading-relaxed">
+            <p className="hero-status-text text-xl font-medium text-[var(--color-text)] leading-relaxed">
               {description}
             </p>
 

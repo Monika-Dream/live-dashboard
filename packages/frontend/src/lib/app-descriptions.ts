@@ -741,8 +741,19 @@ registerTemplate(
   (t) => `正在用Vivaldi看「${t}」喵~`
 );
 
+// 标题嵌入文案前先净化：折叠空白、DevTools 归一、限长，防止超长标题撑爆布局
+const MAX_TITLE_IN_TEXT = 60;
+
+function tidyDisplayTitle(title: string): string {
+  const collapsed = title.replace(/\s+/g, " ").trim();
+  if (/^DevTools\b/i.test(collapsed)) return "开发者工具";
+  if (collapsed.length <= MAX_TITLE_IN_TEXT) return collapsed;
+  return collapsed.slice(0, MAX_TITLE_IN_TEXT - 1).trimEnd() + "…";
+}
+
 export function getAppDescription(appName: string, displayTitle?: string, music?: { title?: string; artist?: string; app?: string }): string {
   if (!appName) return DEFAULT_DESCRIPTION;
+  if (displayTitle) displayTitle = tidyDisplayTitle(displayTitle);
 
   const appLower = appName.toLowerCase();
   const isMusicAppForeground = _musicAppNames.has(appLower);
@@ -770,7 +781,7 @@ export function getAppDescription(appName: string, displayTitle?: string, music?
   if (!base) {
     // Unknown app with a display title → show it
     if (displayTitle) {
-      base = `正在玩「${displayTitle}」喵~`;
+      base = `正在使用「${displayTitle}」喵~`;
     } else {
       base = DEFAULT_DESCRIPTION;
     }
