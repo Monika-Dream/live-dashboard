@@ -318,6 +318,9 @@ function stripZeroWidth(s: string): string {
   return s.replace(/[\u200B\u200C\u200D\uFEFF]/g, "");
 }
 
+/** Edge 多标签聚合后缀：「xxx 和另外 10 个页面」/「xxx and 10 more pages」 */
+const edgeTabGroupRe = /\s*(?:和另外\s*\d+\s*个页面|and\s+\d+\s+more\s+pages?)\s*$/i;
+
 /** Strip browser name suffix from a tab title (case-insensitive). */
 function stripBrowserSuffix(title: string): string {
   const cleaned = stripZeroWidth(title);
@@ -327,17 +330,17 @@ function stripBrowserSuffix(title: string): string {
   const edgeProfileRe = /\s-\s[^-]+\s-\sMicrosoft\s*Edge$/i;
   const m = edgeProfileRe.exec(cleaned);
   if (m && m.index !== undefined) {
-    return cleaned.slice(0, m.index).trim();
+    return cleaned.slice(0, m.index).replace(edgeTabGroupRe, "").trim();
   }
 
   // Then try simple suffix matching
   for (const suffix of browserSuffixes) {
     if (lower.endsWith(suffix.toLowerCase())) {
-      return cleaned.slice(0, -suffix.length).trim();
+      return cleaned.slice(0, -suffix.length).replace(edgeTabGroupRe, "").trim();
     }
   }
 
-  return cleaned;
+  return cleaned.replace(edgeTabGroupRe, "").trim();
 }
 
 /** Check if a browser title contains sensitive keywords. */
