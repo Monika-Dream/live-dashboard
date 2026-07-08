@@ -538,11 +538,55 @@ _UI_TEXT = "#2D2B2B"
 _UI_MUTED = "#8B7E74"
 
 
+class _Tooltip:
+    """极简悬停提示：停留半秒后在控件下方弹出一行大白话解释。"""
+
+    def __init__(self, widget, text: str):
+        self.widget = widget
+        self.text = text
+        self.tip = None
+        self._after = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _event=None):
+        self._cancel()
+        self._after = self.widget.after(500, self._show)
+
+    def _cancel(self):
+        if self._after:
+            self.widget.after_cancel(self._after)
+            self._after = None
+
+    def _show(self):
+        if self.tip:
+            return
+        import tkinter as tk
+        x = self.widget.winfo_rootx() + 12
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        self.tip = tk.Toplevel(self.widget)
+        self.tip.wm_overrideredirect(True)
+        self.tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            self.tip, text=self.text, justify="left",
+            bg=_UI_CARD, fg=_UI_TEXT, relief="solid", bd=1,
+            font=("Segoe UI", 9), padx=8, pady=5, wraplength=300,
+        ).pack()
+
+    def _hide(self, _event=None):
+        self._cancel()
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
+
+
 def show_settings_dialog(current_config: dict | None = None) -> dict | None:
     """Show tkinter settings dialog. Returns new config or None if cancelled.
 
     刻意保持一个小窗口 + 一列字段 + 两个按钮——它只是个上报数据的
-    配置入口，优雅够用即可，不做多余的界面。
+    配置入口，优雅够用即可，不做多余的界面。每个字段都带鼠标悬停的
+    大白话解释，不让用户对着专业术语猜。
     """
     try:
         import tkinter as tk
@@ -584,9 +628,10 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
         lightcolor=_UI_BORDER, darkcolor=_UI_BORDER, foreground=_UI_TEXT,
         arrowcolor=_UI_MUTED, padding=4,
     )
+    # 注意：tkinter 字号只接受整数，写小数会让整条样式失效（文字消失）
     style.configure(
         "Cream.TCheckbutton", background=_UI_CREAM, foreground=_UI_TEXT,
-        font=("Segoe UI", 9.5),
+        font=("Segoe UI", 9),
     )
     style.map("Cream.TCheckbutton", background=[("active", _UI_CREAM)])
 
@@ -601,45 +646,61 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
         frame, text="把此刻正在做的事，轻轻放到你的主页上", style="Muted.TLabel"
     ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(1, 14))
 
-    def field(row: int, label: str):
-        ttk.Label(frame, text=label, style="Cream.TLabel").grid(
-            row=row, column=0, sticky="w", pady=5, padx=(0, 12)
-        )
+    def field(row: int, label: str, tip: str, widget):
+        """一行字段：标签 + 控件，两者都挂同一条大白话悬停提示。"""
+        lbl = ttk.Label(frame, text=label, style="Cream.TLabel")
+        lbl.grid(row=row, column=0, sticky="w", pady=5, padx=(0, 12))
+        _Tooltip(lbl, tip)
+        _Tooltip(widget, tip)
 
-    field(2, "服务器地址")
     url_var = tk.StringVar(value=cfg.get("server_url", ""))
-    ttk.Entry(frame, textvariable=url_var, width=38, style="Cream.TEntry").grid(
-        row=2, column=1, sticky="we", pady=5
-    )
+    url_entry = ttk.Entry(frame, textvariable=url_var, width=38, style="Cream.TEntry")
+    url_entry.grid(row=2, column=1, sticky="we", pady=5)
+    field(2, "服务器地址",
+          "你的面板网址（浏览器里打开面板用的那个地址），例如 https://now.example.com",
+          url_entry)
 
-    field(3, "Token")
     token_var = tk.StringVar(value=cfg.get("token", ""))
-    ttk.Entry(frame, textvariable=token_var, width=38, show="•", style="Cream.TEntry").grid(
-        row=3, column=1, sticky="we", pady=5
-    )
+    token_entry = ttk.Entry(frame, textvariable=token_var, width=38, show="•", style="Cream.TEntry")
+    token_entry.grid(row=3, column=1, sticky="we", pady=5)
+    field(3, "Token",
+          "这台电脑的专属密钥，要和服务器 .env 里 DEVICE_TOKEN 配置的一致——用来证明上报的人是你",
+          token_entry)
 
-    field(4, "上报间隔（秒）")
     interval_var = tk.IntVar(value=cfg.get("interval_seconds", 5))
-    ttk.Spinbox(
+    interval_spin = ttk.Spinbox(
         frame, textvariable=interval_var, from_=1, to=300, width=8, style="Cream.TSpinbox"
-    ).grid(row=4, column=1, sticky="w", pady=5)
+    )
+    interval_spin.grid(row=4, column=1, sticky="w", pady=5)
+    field(4, "上报间隔（秒）",
+          "每隔几秒看一眼你正在用什么软件、有没有换歌，发给服务器。数字越小网页更新越快，默认 5 秒就很合适",
+          interval_spin)
 
-    field(5, "心跳间隔（秒）")
     heartbeat_var = tk.IntVar(value=cfg.get("heartbeat_seconds", 60))
-    ttk.Spinbox(
+    heartbeat_spin = ttk.Spinbox(
         frame, textvariable=heartbeat_var, from_=10, to=600, width=8, style="Cream.TSpinbox"
-    ).grid(row=5, column=1, sticky="w", pady=5)
+    )
+    heartbeat_spin.grid(row=5, column=1, sticky="w", pady=5)
+    field(5, "心跳间隔（秒）",
+          "哪怕你一直开着同一个软件没动过，也每隔这么久向服务器报个平安，让网页知道电脑还在线（不用改）",
+          heartbeat_spin)
 
-    field(6, "AFK 判定（秒）")
     idle_var = tk.IntVar(value=cfg.get("idle_threshold_seconds", 300))
-    ttk.Spinbox(
+    idle_spin = ttk.Spinbox(
         frame, textvariable=idle_var, from_=30, to=3600, width=8, style="Cream.TSpinbox"
-    ).grid(row=6, column=1, sticky="w", pady=5)
+    )
+    idle_spin.grid(row=6, column=1, sticky="w", pady=5)
+    field(6, "离开判定（秒）",
+          "键盘鼠标超过这么久没动，就认为你人不在电脑前，网页上会显示「暂时离开」。默认 5 分钟",
+          idle_spin)
 
     log_var = tk.BooleanVar(value=cfg.get("enable_log", False))
-    ttk.Checkbutton(
-        frame, text="开启日志文件（保留 2 天）", variable=log_var, style="Cream.TCheckbutton"
-    ).grid(row=7, column=0, columnspan=2, sticky="w", pady=(8, 2))
+    log_check = ttk.Checkbutton(
+        frame, text="记录运行日志（排查问题用）", variable=log_var, style="Cream.TCheckbutton"
+    )
+    log_check.grid(row=7, column=0, columnspan=2, sticky="w", pady=(8, 2))
+    _Tooltip(log_check,
+             "把运行过程写进日志文件，只在上报出问题需要排查时才打开，平时保持关闭；日志自动只保留 2 天")
 
     def on_save():
         new_cfg = {
