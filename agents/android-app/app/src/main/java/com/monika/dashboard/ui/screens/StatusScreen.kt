@@ -230,28 +230,20 @@ fun StatusScreen() {
                     }
                 }
             }
-            if (isMiui) {
+            // 厂商私有保活开关：按 Build.MANUFACTURER 只渲染当前设备厂商的直达行，
+            // 小米看不到华为的、华为看不到 OPPO 的——其他厂商的机器上这些行根本不存在
+            val vendorSettings = remember(manufacturer) { vendorKeepAliveSettings(manufacturer) }
+            vendorSettings.forEach { setting ->
                 RowDivider()
                 PermissionRow(
-                    title = "自启动",
-                    subtitle = "MIUI 私有开关 · 开机与被杀后允许自动拉起",
+                    title = setting.title,
+                    subtitle = setting.subtitle,
                     state = PermState.MANUAL
                 ) {
-                    try {
-                        context.startActivity(
-                            Intent().apply {
-                                component = android.content.ComponentName(
-                                    "com.miui.securitycenter",
-                                    "com.miui.permcenter.autostart.AutoStartManagementActivity"
-                                )
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                        )
-                    } catch (e: Exception) {
-                        DebugLog.log("设置", "小米自启动页打开失败: ${e.message}")
-                        openAppDetails(context, "请手动前往 设置→应用→自启动管理")
-                    }
+                    openVendorSetting(context, setting)
                 }
+            }
+            if (isMiui) {
                 RowDivider()
                 PermissionRow(
                     title = "省电策略 → 无限制",
@@ -592,6 +584,120 @@ private fun BackgroundHealthRow(
             }
         }
     }
+}
+
+/* ---------- 厂商私有保活开关 ---------- */
+
+/**
+ * 一条厂商专属的保活设置直达项。
+ * components 依序尝试（各厂商不同系统版本 Activity 会搬家），全失败退应用详情页。
+ * 组件名参考 AutoStarter 开源库（judemanutd/autostarter）与社区整理，属业界事实标准。
+ */
+private data class VendorSetting(
+    val title: String,
+    val subtitle: String,
+    val components: List<Pair<String, String>>,
+    val failHint: String,
+)
+
+/** 按厂商返回适用的直达行；原生类系统（Pixel 等）返回空——AOSP 电池优化行已覆盖。 */
+private fun vendorKeepAliveSettings(manufacturer: String): List<VendorSetting> = when {
+    manufacturer.contains("xiaomi") || manufacturer.contains("redmi") -> listOf(
+        VendorSetting(
+            title = "自启动",
+            subtitle = "MIUI 私有开关 · 开机与被杀后允许自动拉起",
+            components = listOf(
+                "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            ),
+            failHint = "请手动前往 设置→应用→自启动管理",
+        ),
+    )
+    manufacturer.contains("honor") -> listOf(
+        VendorSetting(
+            title = "应用启动管理",
+            subtitle = "Magic OS · 设为手动管理并打开全部三个开关",
+            components = listOf(
+                "com.hihonor.systemmanager" to "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+            ),
+            failHint = "请手动前往 设置→应用启动管理→Live Dashboard→手动管理",
+        ),
+    )
+    manufacturer.contains("huawei") -> listOf(
+        VendorSetting(
+            title = "应用启动管理",
+            subtitle = "EMUI/鸿蒙的后台闸门 · 设为手动管理并打开全部三个开关",
+            components = listOf(
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+            ),
+            failHint = "请手动前往 设置→应用启动管理→Live Dashboard→手动管理",
+        ),
+    )
+    manufacturer.contains("oppo") || manufacturer.contains("realme") -> listOf(
+        VendorSetting(
+            title = "自启动管理",
+            subtitle = "ColorOS · 允许自启动与后台运行",
+            components = listOf(
+                "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+                "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+                "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            ),
+            failHint = "请手动前往 手机管家→权限隐私→自启动管理",
+        ),
+    )
+    manufacturer.contains("oneplus") -> listOf(
+        VendorSetting(
+            title = "自启动管理",
+            subtitle = "一加 · 允许自启动与后台运行",
+            components = listOf(
+                "com.oneplus.security" to "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity",
+                "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            ),
+            failHint = "请手动前往 设置→应用→自启动管理",
+        ),
+    )
+    manufacturer.contains("vivo") || manufacturer.contains("iqoo") -> listOf(
+        VendorSetting(
+            title = "后台高耗电",
+            subtitle = "OriginOS · 允许后台高耗电运行",
+            components = listOf(
+                "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+                "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager",
+            ),
+            failHint = "请手动前往 设置→电池→后台功耗管理",
+        ),
+    )
+    manufacturer.contains("samsung") -> listOf(
+        VendorSetting(
+            title = "后台使用限制",
+            subtitle = "One UI · 别让本应用进入「深度睡眠」列表",
+            components = listOf(
+                "com.samsung.android.lool" to "com.samsung.android.sm.ui.battery.BatteryActivity",
+                "com.samsung.android.lool" to "com.samsung.android.sm.battery.ui.BatteryActivity",
+            ),
+            failHint = "请手动前往 设置→电池→后台使用限制",
+        ),
+    )
+    else -> emptyList()
+}
+
+/** 依序尝试厂商设置页候选组件，全失败退应用详情页。 */
+private fun openVendorSetting(context: android.content.Context, setting: VendorSetting) {
+    for ((pkg, cls) in setting.components) {
+        try {
+            context.startActivity(
+                Intent().apply {
+                    component = android.content.ComponentName(pkg, cls)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+            return
+        } catch (e: Exception) {
+            DebugLog.log("设置", "「${setting.title}」候选 $pkg 打开失败: ${e.message}")
+        }
+    }
+    openAppDetails(context, setting.failHint)
 }
 
 /* ---------- 跳转 helper ---------- */
