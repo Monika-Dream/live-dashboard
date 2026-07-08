@@ -71,6 +71,7 @@ object HeartbeatReporter {
             val result = client.reportApp(
                 appId = appId,
                 windowTitle = "",
+                appLabel = resolveAppLabel(appContext, appId),
                 batteryPercent = battery?.first,
                 batteryCharging = battery?.second,
                 musicTitle = music?.title,
@@ -139,6 +140,19 @@ object HeartbeatReporter {
         return currentAppPackage?.takeIf { it.isNotBlank() }
             ?: musicPackage?.takeIf { it.isNotBlank() }
             ?: "android"
+    }
+
+    /**
+     * 查本机 PackageManager 拿应用显示名（如 com.tencent.mm → 微信），随包名一起上报。
+     * 服务端映射表未命中时用它兜底，让任何已安装应用都能显示正确名称；
+     * 命中时仍以服务端映射为准——映射与文案的决策点只在服务端一处。
+     */
+    private fun resolveAppLabel(context: Context, appId: String): String? {
+        if (!appId.contains(".")) return null // idle / android 等哨兵值没有对应包
+        return runCatching {
+            val pm = context.packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(appId, 0)).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() && it != appId }
     }
 
     private fun detectMusic(musicProvider: MusicMetadataProvider) =

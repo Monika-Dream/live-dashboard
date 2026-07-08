@@ -18,7 +18,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.monitor.CurrentAppDetector
-import com.monika.dashboard.monitor.MusicMetadataProvider
 import com.monika.dashboard.service.DashboardHeartbeatService
 import com.monika.dashboard.service.HeartbeatWorker
 import com.monika.dashboard.ui.theme.Primary
@@ -42,11 +41,9 @@ fun SetupScreen(settings: SettingsStore) {
     var tokenInput by remember { mutableStateOf("") }
     var intervalInput by remember(reportInterval) { mutableStateOf(reportInterval.toString()) }
     val currentAppDetector = remember(context) { CurrentAppDetector(context.applicationContext) }
-    val musicProvider = remember(context) { MusicMetadataProvider(context.applicationContext) }
     var tick by remember { mutableIntStateOf(0) }
     val usageAccessGranted = remember(tick) { currentAppDetector.hasUsageAccess() }
     val accessibilityAccessGranted = remember(tick) { currentAppDetector.hasAccessibilityAccess() }
-    val notificationAccessGranted = remember(tick) { musicProvider.hasNotificationAccess() }
 
     // Token 走加密存储，读取时放到后台线程，避免阻塞首屏。
     LaunchedEffect(Unit) {
@@ -133,35 +130,11 @@ fun SetupScreen(settings: SettingsStore) {
             shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "后台权限",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "想让后台监听尽量稳定，建议至少开启“应用使用情况访问 + 无障碍服务”。音乐识别则额外依赖“通知访问”。",
-                    style = MaterialTheme.typography.bodySmall
-                )
-
-                PermissionShortcutRow(
-                    title = "应用使用情况访问",
-                    granted = usageAccessGranted,
-                    onClick = { context.startActivity(CurrentAppDetector.usageAccessSettingsIntent()) }
-                )
-                PermissionShortcutRow(
-                    title = "无障碍服务（推荐）",
-                    granted = accessibilityAccessGranted,
-                    onClick = { context.startActivity(CurrentAppDetector.accessibilitySettingsIntent()) }
-                )
-                PermissionShortcutRow(
-                    title = "通知访问（音乐识别）",
-                    granted = notificationAccessGranted,
-                    onClick = { context.startActivity(MusicMetadataProvider.notificationListenerSettingsIntent()) }
-                )
-            }
+            Text(
+                text = "所有权限申请与后台保活体检已统一收纳在「状态」页——首次使用请去那里把权限逐项点亮。",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(12.dp)
+            )
         }
 
         Button(
@@ -264,26 +237,6 @@ fun SetupScreen(settings: SettingsStore) {
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun PermissionShortcutRow(
-    title: String,
-    granted: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = "$title：${if (granted) "已授权" else "未授权"}",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        TextButton(onClick = onClick) {
-            Text(if (granted) "去查看" else "去授权")
         }
     }
 }

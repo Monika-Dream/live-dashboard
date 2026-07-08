@@ -37,6 +37,7 @@ class ReportClient(
     fun reportApp(
         appId: String,
         windowTitle: String,
+        appLabel: String? = null,
         batteryPercent: Int? = null,
         batteryCharging: Boolean? = null,
         musicTitle: String? = null,
@@ -46,6 +47,9 @@ class ReportClient(
         val body = JSONObject().apply {
             put("app_id", appId)
             put("window_title", windowTitle)
+            // 设备本机的应用显示名，服务端映射表未命中时用它兜底，
+            // 保证冷门应用也能显示正确名称（映射决策仍只在服务端）
+            appLabel?.takeIf { it.isNotBlank() }?.let { put("app_label", it.take(64)) }
             put("timestamp", Instant.now().toString())
 
             val extra = JSONObject()

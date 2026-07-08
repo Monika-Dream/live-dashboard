@@ -15,6 +15,13 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!--
+        Android 11+ 包可见性：查询前台应用的显示名（app_label 上报兜底）需要全局可见性。
+        本应用自部署侧载、不经 Play 分发，可直接持有该权限。
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <!-- Health Connect 读取权限，逐项声明，运行时再按需申请 -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
