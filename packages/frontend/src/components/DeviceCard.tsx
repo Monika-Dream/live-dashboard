@@ -33,7 +33,7 @@ export default function DeviceCard({ device, selected, onSelect }: DeviceCardPro
 
   return (
     <div
-      className={`card-decorated rounded-md px-3 py-2.5 flex items-center gap-2.5 cursor-pointer transition-all ${
+      className={`card-decorated rounded-md px-3 py-2.5 flex items-center gap-2.5 cursor-pointer transition-all min-w-[170px] flex-shrink-0 lg:min-w-0 lg:flex-shrink ${
         selected
           ? "border-l-[3px] border-l-[var(--color-primary)] bg-[var(--color-sakura-bg,rgba(255,183,197,0.1))]"
           : ""

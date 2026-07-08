@@ -61,6 +61,8 @@ function HomeInner() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [tab, setTab] = useState<"activity" | "health">("activity");
   const [hasHealthData, setHasHealthData] = useState(false);
+  // 多面板总览大卡片默认收起：竖屏访问为主，别让重复信息把时间线挤到滚动区外
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
 
   useEffect(() => {
     if (!dashboards.some((dashboard) => dashboard.id === selectedDashboardId)) {
@@ -201,6 +203,10 @@ function HomeInner() {
     };
   }, [allOffline]);
 
+  // 只有本地一个面板时，Panels 切换器和总览大卡片的信息与下方状态气泡/
+  // 设备列表完全重复，纯占竖向空间——整个区域不渲染
+  const isSinglePanel = resolvedSnapshots.length <= 1;
+
   return (
     <>
       <Header
@@ -209,11 +215,15 @@ function HomeInner() {
         displayName={activeDashboard?.name ?? displayName}
       />
 
-      <DashboardSwitcher
-        dashboards={resolvedSnapshots}
-        selectedDashboardId={activeDashboard?.id ?? "local"}
-        onSelect={setSelectedDashboardId}
-      />
+      {!isSinglePanel && (
+        <DashboardSwitcher
+          dashboards={resolvedSnapshots}
+          selectedDashboardId={activeDashboard?.id ?? "local"}
+          onSelect={setSelectedDashboardId}
+          overviewExpanded={overviewExpanded}
+          onToggleOverview={() => setOverviewExpanded((v) => !v)}
+        />
+      )}
 
       {error && (
         <div className="vn-bubble mb-4 border-[var(--color-primary)]">
@@ -238,44 +248,53 @@ function HomeInner() {
         </div>
       )}
 
-      <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {resolvedSnapshots.map((dashboard) => (
-          <DashboardOverviewCard
-            key={dashboard.id}
-            dashboard={dashboard}
-            selected={dashboard.id === activeDashboard?.id}
-            onSelect={() => setSelectedDashboardId(dashboard.id)}
-          />
-        ))}
-      </section>
+      {!isSinglePanel && overviewExpanded && (
+        <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {resolvedSnapshots.map((dashboard) => (
+            <DashboardOverviewCard
+              key={dashboard.id}
+              dashboard={dashboard}
+              selected={dashboard.id === activeDashboard?.id}
+              onSelect={() => setSelectedDashboardId(dashboard.id)}
+            />
+          ))}
+        </section>
+      )}
 
       {current && (
         <>
           <CurrentStatus device={selectedDevice} displayName={activeDashboard?.name} />
 
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="lg:w-56 flex-shrink-0 space-y-2">
-              <h2 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-                Devices
-              </h2>
-              {devices.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-lg mb-1">( -ω-) zzZ</p>
-                  <p className="text-xs text-[var(--color-text-muted)] italic">
-                    还没有设备连接呢~
-                  </p>
-                </div>
-              ) : (
-                devices.map((device) => (
-                  <DeviceCard
-                    key={device.device_id}
-                    device={device}
-                    selected={selectedDevice?.device_id === device.device_id}
-                    onSelect={() => setSelectedDeviceId(device.device_id)}
-                  />
-                ))
-              )}
-            </div>
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+            {/* 单设备时不渲染设备栏——状态气泡已经展示了这台设备的一切，
+                竖屏访问时省出的空间让时间线不用滚动就能看到 */}
+            {devices.length !== 1 && (
+              <div className="lg:w-56 flex-shrink-0">
+                <h2 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
+                  Devices
+                </h2>
+                {devices.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-lg mb-1">( -ω-) zzZ</p>
+                    <p className="text-xs text-[var(--color-text-muted)] italic">
+                      还没有设备连接呢~
+                    </p>
+                  </div>
+                ) : (
+                  /* 手机上横向滑动一行，lg 起恢复纵向侧栏 */
+                  <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
+                    {devices.map((device) => (
+                      <DeviceCard
+                        key={device.device_id}
+                        device={device}
+                        selected={selectedDevice?.device_id === device.device_id}
+                        onSelect={() => setSelectedDeviceId(device.device_id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -392,23 +411,21 @@ function DashboardSwitcher({
   dashboards,
   selectedDashboardId,
   onSelect,
+  overviewExpanded,
+  onToggleOverview,
 }: {
   dashboards: DashboardSnapshot[];
   selectedDashboardId: string;
   onSelect: (id: string) => void;
+  overviewExpanded: boolean;
+  onToggleOverview: () => void;
 }) {
   return (
     <section className="mb-4">
-      <div className="mb-2">
-        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-text-muted)]">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--color-text-muted)] mr-1">
           Panels
-        </p>
-        <p className="text-xs text-[var(--color-text-muted)] mt-1">
-          点击切换完整时间线，下方卡片可以同时看所有人的在线状态。
-        </p>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
+        </span>
         {dashboards.map((dashboard) => (
           <button
             key={dashboard.id}
@@ -420,6 +437,14 @@ function DashboardSwitcher({
             <span className="text-[10px] opacity-70">{dashboard.onlineDevices}/{dashboard.totalDevices}</span>
           </button>
         ))}
+        <button
+          type="button"
+          onClick={onToggleOverview}
+          className="panel-chip text-[10px]"
+          aria-expanded={overviewExpanded}
+        >
+          总览 {overviewExpanded ? "▴" : "▾"}
+        </button>
       </div>
     </section>
   );
