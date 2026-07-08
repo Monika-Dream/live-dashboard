@@ -528,8 +528,22 @@ def show_message(title: str, message: str, error: bool = False) -> None:
 # ---------------------------------------------------------------------------
 # Settings Dialog
 # ---------------------------------------------------------------------------
+# 设置窗配色：与 dashboard 网页同一套暖色系，小窗也保持品牌感
+_UI_CREAM = "#FFF8E7"     # 窗口底
+_UI_CARD = "#FFFDF7"      # 输入区底
+_UI_BORDER = "#E8D5C4"    # 描边
+_UI_PRIMARY = "#E8A0BF"   # 主粉
+_UI_PRIMARY_DARK = "#D98FB0"
+_UI_TEXT = "#2D2B2B"
+_UI_MUTED = "#8B7E74"
+
+
 def show_settings_dialog(current_config: dict | None = None) -> dict | None:
-    """Show tkinter settings dialog. Returns new config or None if cancelled."""
+    """Show tkinter settings dialog. Returns new config or None if cancelled.
+
+    刻意保持一个小窗口 + 一列字段 + 两个按钮——它只是个上报数据的
+    配置入口，优雅够用即可，不做多余的界面。
+    """
     try:
         import tkinter as tk
         from tkinter import ttk, messagebox
@@ -541,36 +555,91 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
     result: list[dict | None] = [None]
 
     root = tk.Tk()
-    root.title("Live Dashboard - 设置")
+    root.title("Live Dashboard · 设置")
     root.resizable(False, False)
+    root.configure(bg=_UI_CREAM)
 
-    frame = ttk.Frame(root, padding=20)
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except Exception:
+        pass
+    style.configure("Cream.TFrame", background=_UI_CREAM)
+    style.configure(
+        "Cream.TLabel", background=_UI_CREAM, foreground=_UI_TEXT, font=("Segoe UI", 10)
+    )
+    style.configure(
+        "Muted.TLabel", background=_UI_CREAM, foreground=_UI_MUTED, font=("Segoe UI", 9)
+    )
+    style.configure(
+        "Title.TLabel", background=_UI_CREAM, foreground=_UI_TEXT,
+        font=("Segoe UI Semibold", 15),
+    )
+    style.configure(
+        "Cream.TEntry", fieldbackground=_UI_CARD, bordercolor=_UI_BORDER,
+        lightcolor=_UI_BORDER, darkcolor=_UI_BORDER, foreground=_UI_TEXT, padding=4,
+    )
+    style.configure(
+        "Cream.TSpinbox", fieldbackground=_UI_CARD, bordercolor=_UI_BORDER,
+        lightcolor=_UI_BORDER, darkcolor=_UI_BORDER, foreground=_UI_TEXT,
+        arrowcolor=_UI_MUTED, padding=4,
+    )
+    style.configure(
+        "Cream.TCheckbutton", background=_UI_CREAM, foreground=_UI_TEXT,
+        font=("Segoe UI", 9.5),
+    )
+    style.map("Cream.TCheckbutton", background=[("active", _UI_CREAM)])
+
+    frame = ttk.Frame(root, padding=(24, 20, 24, 18), style="Cream.TFrame")
     frame.pack(fill="both", expand=True)
 
-    ttk.Label(frame, text="服务器地址:").grid(row=0, column=0, sticky="w", pady=6)
+    # ── 标题区 ──
+    ttk.Label(frame, text="Live Dashboard", style="Title.TLabel").grid(
+        row=0, column=0, columnspan=2, sticky="w"
+    )
+    ttk.Label(
+        frame, text="把此刻正在做的事，轻轻放到你的主页上", style="Muted.TLabel"
+    ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(1, 14))
+
+    def field(row: int, label: str):
+        ttk.Label(frame, text=label, style="Cream.TLabel").grid(
+            row=row, column=0, sticky="w", pady=5, padx=(0, 12)
+        )
+
+    field(2, "服务器地址")
     url_var = tk.StringVar(value=cfg.get("server_url", ""))
-    ttk.Entry(frame, textvariable=url_var, width=45).grid(row=0, column=1, pady=6, padx=(8, 0))
+    ttk.Entry(frame, textvariable=url_var, width=38, style="Cream.TEntry").grid(
+        row=2, column=1, sticky="we", pady=5
+    )
 
-    ttk.Label(frame, text="Token:").grid(row=1, column=0, sticky="w", pady=6)
+    field(3, "Token")
     token_var = tk.StringVar(value=cfg.get("token", ""))
-    ttk.Entry(frame, textvariable=token_var, width=45, show="*").grid(row=1, column=1, pady=6, padx=(8, 0))
+    ttk.Entry(frame, textvariable=token_var, width=38, show="•", style="Cream.TEntry").grid(
+        row=3, column=1, sticky="we", pady=5
+    )
 
-    ttk.Label(frame, text="上报间隔 (秒):").grid(row=2, column=0, sticky="w", pady=6)
+    field(4, "上报间隔（秒）")
     interval_var = tk.IntVar(value=cfg.get("interval_seconds", 5))
-    ttk.Spinbox(frame, textvariable=interval_var, from_=1, to=300, width=10).grid(row=2, column=1, sticky="w", pady=6, padx=(8, 0))
+    ttk.Spinbox(
+        frame, textvariable=interval_var, from_=1, to=300, width=8, style="Cream.TSpinbox"
+    ).grid(row=4, column=1, sticky="w", pady=5)
 
-    ttk.Label(frame, text="心跳间隔 (秒):").grid(row=3, column=0, sticky="w", pady=6)
+    field(5, "心跳间隔（秒）")
     heartbeat_var = tk.IntVar(value=cfg.get("heartbeat_seconds", 60))
-    ttk.Spinbox(frame, textvariable=heartbeat_var, from_=10, to=600, width=10).grid(row=3, column=1, sticky="w", pady=6, padx=(8, 0))
+    ttk.Spinbox(
+        frame, textvariable=heartbeat_var, from_=10, to=600, width=8, style="Cream.TSpinbox"
+    ).grid(row=5, column=1, sticky="w", pady=5)
 
-    ttk.Label(frame, text="AFK 判定 (秒):").grid(row=4, column=0, sticky="w", pady=6)
+    field(6, "AFK 判定（秒）")
     idle_var = tk.IntVar(value=cfg.get("idle_threshold_seconds", 300))
-    ttk.Spinbox(frame, textvariable=idle_var, from_=30, to=3600, width=10).grid(row=4, column=1, sticky="w", pady=6, padx=(8, 0))
+    ttk.Spinbox(
+        frame, textvariable=idle_var, from_=30, to=3600, width=8, style="Cream.TSpinbox"
+    ).grid(row=6, column=1, sticky="w", pady=5)
 
     log_var = tk.BooleanVar(value=cfg.get("enable_log", False))
-    ttk.Checkbutton(frame, text="开启日志文件 (保留 2 天)", variable=log_var).grid(
-        row=5, column=0, columnspan=2, sticky="w", pady=6
-    )
+    ttk.Checkbutton(
+        frame, text="开启日志文件（保留 2 天）", variable=log_var, style="Cream.TCheckbutton"
+    ).grid(row=7, column=0, columnspan=2, sticky="w", pady=(8, 2))
 
     def on_save():
         new_cfg = {
@@ -591,10 +660,19 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
         else:
             messagebox.showerror("保存失败", "无法写入 config.json", parent=root)
 
-    btn_frame = ttk.Frame(frame)
-    btn_frame.grid(row=6, column=0, columnspan=2, pady=16)
-    ttk.Button(btn_frame, text="保存", command=on_save).pack(side="left", padx=12)
-    ttk.Button(btn_frame, text="取消", command=root.destroy).pack(side="left", padx=12)
+    # ── 按钮区：主操作粉色实心，取消是安静的文字按钮 ──
+    btn_frame = ttk.Frame(frame, style="Cream.TFrame")
+    btn_frame.grid(row=8, column=0, columnspan=2, sticky="e", pady=(14, 0))
+    tk.Button(
+        btn_frame, text="取消", command=root.destroy,
+        bg=_UI_CREAM, fg=_UI_MUTED, activebackground=_UI_CREAM, activeforeground=_UI_TEXT,
+        relief="flat", bd=0, font=("Segoe UI", 10), padx=14, pady=4, cursor="hand2",
+    ).pack(side="left", padx=(0, 10))
+    tk.Button(
+        btn_frame, text="保存并启动", command=on_save,
+        bg=_UI_PRIMARY, fg="white", activebackground=_UI_PRIMARY_DARK, activeforeground="white",
+        relief="flat", bd=0, font=("Segoe UI Semibold", 10), padx=20, pady=4, cursor="hand2",
+    ).pack(side="left")
 
     # Center on screen
     root.update_idletasks()
