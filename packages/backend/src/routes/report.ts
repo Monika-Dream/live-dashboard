@@ -33,6 +33,11 @@ export async function handleReport(req: Request): Promise<Response> {
     return Response.json({ error: "app_id required" }, { status: 400 });
   }
 
+  // 客户端上报的本机应用显示名（如 Android PackageManager 的 label）。
+  // 仅作为映射表未命中时的名称兜底，长度与内容在 resolveAppMeta 里再消毒。
+  const appLabel =
+    typeof body.app_label === "string" ? body.app_label.trim().slice(0, 64) : undefined;
+
   // Truncate window_title
   let windowTitle =
     typeof body.window_title === "string" ? body.window_title : "";
@@ -60,8 +65,8 @@ export async function handleReport(req: Request): Promise<Response> {
     return Response.json({ ok: true });
   }
 
-  // Resolve app name
-  let { appName } = resolveAppMeta(appId, device.platform);
+  // Resolve app name（app_label 作为映射未命中时的兜底，secret 判定同样覆盖它）
+  let { appName } = resolveAppMeta(appId, device.platform, appLabel);
   let effectiveAppId = appId;
 
   // 私密应用（银行/密码管理器等）：写入前整体匿名化，app_id/标题一概不落库。
