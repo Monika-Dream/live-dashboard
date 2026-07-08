@@ -125,8 +125,9 @@ function getDashboards(): DashboardProfile[] {
 export function getSiteConfig(): SiteConfig {
   const displayName = nonEmpty(process.env.DISPLAY_NAME) ?? DEFAULT_DISPLAY_NAME;
   const siteTitle = nonEmpty(process.env.SITE_TITLE) ?? `${displayName} Now`;
+  // 默认描述保持中文——中英混排的 meta 会诱导浏览器误判页面语言、弹翻译提示
   const siteDescription =
-    nonEmpty(process.env.SITE_DESC) ?? `What is ${displayName} doing right now?`;
+    nonEmpty(process.env.SITE_DESC) ?? `${displayName} 此刻正在做什么？`;
   const rawFavicon = nonEmpty(process.env.SITE_FAVICON) ?? DEFAULT_FAVICON;
 
   return {
