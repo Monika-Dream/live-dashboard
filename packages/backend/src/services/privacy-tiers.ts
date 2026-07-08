@@ -308,6 +308,7 @@ const videoSiteKeywords = [
   "youtube", "bilibili", "b站", "哔哩哔哩",
   "netflix", "爱奇艺", "优酷", "腾讯视频",
   "twitch", "niconico",
+  "acfun", "芒果tv", "咪咕视频", "西瓜视频", "斗鱼", "虎牙",
 ];
 
 // ── Title extraction helpers ──
