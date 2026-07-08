@@ -339,6 +339,11 @@ fun StatusScreen() {
                     }
                 }
             }
+
+            // 省电策略「无限制」——MIUI 冻结后台的真正闸门，直达其配置页
+            ServiceStatusRow("省电策略（务必设为「无限制」）") {
+                openMiuiBatterySaver(context)
+            }
         }
 
         // OEM-specific guidance
@@ -427,6 +432,40 @@ fun StatusScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 直达 MIUI/HyperOS 省电策略配置页（HiddenAppsConfigActivity，真机实测可用）。
+ * 电池优化白名单（AOSP）≠ 省电策略（MIUI 私有），后者才是后台冻结的真正闸门，
+ * 必须设为「无限制」。失败时退应用详情页，再退 Toast 提示手动路径。
+ */
+private fun openMiuiBatterySaver(context: android.content.Context) {
+    try {
+        context.startActivity(
+            Intent().apply {
+                component = android.content.ComponentName(
+                    "com.miui.powerkeeper",
+                    "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"
+                )
+                putExtra("package_name", context.packageName)
+                putExtra("package_label", "Live Dashboard")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    } catch (e: Exception) {
+        DebugLog.log("设置", "省电策略页打开失败: ${e.message}")
+        try {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (e2: Exception) {
+            DebugLog.log("设置", "应用详情页也无法打开: ${e2.message}")
+            Toast.makeText(context, "请手动前往 设置→应用管理→Live Dashboard→省电策略→无限制", Toast.LENGTH_LONG).show()
         }
     }
 }
