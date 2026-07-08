@@ -124,7 +124,21 @@ echo "Token: $TOKEN  ← Agent 配置用"
 - `statusTexts` 段按映射后的应用名匹配，用来给内置应用换文案
 - **与内置条目冲突时，以你的 JSON 为准**；非法条目会被跳过并在日志里提示
 
-想把自定义直接贡献回项目的话，改源码里的 `packages/backend/src/data/app-overrides.ts`（按 app_id 覆盖）或基础映射表 `packages/backend/src/data/app-names.json`，然后提 PR。
+### 内置文案库也是 JSON
+
+所有内置的"正在干什么喵~"文案（370+ 条精确条目 + 30+ 条关键词启发规则）都在
+[`packages/backend/src/data/status-texts.json`](packages/backend/src/data/status-texts.json)，
+文件顶部自带格式说明——想整体换一套人设/口癖，直接改这个文件重启即可
+（Docker 部署可以 volume 挂载覆盖同路径）。只想改个别应用就用上面的 `custom-mappings.json`，它优先级更高。
+
+### 识别不到的应用去哪了？
+
+Android 端上报时会附带本机 `PackageManager` 查到的应用显示名（`app_label`），
+后端映射表未命中时自动用它兜底——所以**任何已安装的应用都会显示正确名称**，
+再配合启发式文案规则（名字里带"小说"就"正在看小说喵~"之类）给出贴切的状态文案。
+内置映射表只需要维护"名称需要更好文案"的那部分应用。
+
+想把自定义直接贡献回项目的话，改源码里的 `packages/backend/src/data/app-overrides.ts`（按 app_id 覆盖）、基础映射表 `packages/backend/src/data/app-names.json` 或文案库 `packages/backend/src/data/status-texts.json`，然后提 PR。
 
 ## 多面板聚合
 

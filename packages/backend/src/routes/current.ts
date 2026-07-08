@@ -13,7 +13,9 @@ function preparePublicDevices(devices: DeviceState[]) {
     } catch {
       // Malformed JSON — ignore
     }
-    const { appName, statusText } = resolveAppMeta(rest.app_id, rest.platform);
+    // 库里的 app_name 是写入时解析好的结果（可能来自客户端 label 兜底），
+    // 这里回传给解析链：映射表命中则以最新映射为准，未命中则沿用它
+    const { appName, statusText } = resolveAppMeta(rest.app_id, rest.platform, rest.app_name);
     return {
       ...rest,
       app_name: appName,
@@ -29,7 +31,8 @@ function stripWindowTitle<T extends { window_title?: string }>(
   return records.map(({ window_title, ...rest }) => {
     const appId = "app_id" in rest && typeof rest.app_id === "string" ? rest.app_id : "";
     const platform = "platform" in rest && typeof rest.platform === "string" ? rest.platform : "";
-    const { appName, statusText } = resolveAppMeta(appId, platform);
+    const storedName = "app_name" in rest && typeof rest.app_name === "string" ? rest.app_name : undefined;
+    const { appName, statusText } = resolveAppMeta(appId, platform, storedName);
     return {
       ...rest,
       app_name: appName,

@@ -62,7 +62,7 @@ export function handleTimeline(url: URL): Response {
   const segments: TimelineSegment[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
-    const { appName, statusText } = resolveAppMeta(a.app_id, a.platform);
+    const { appName, statusText } = resolveAppMeta(a.app_id, a.platform, a.app_name);
     // Find next activity on same device to compute end time
     let endedAt: string | null = null;
     for (let j = i + 1; j < activities.length; j++) {
