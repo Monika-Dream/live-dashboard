@@ -139,6 +139,17 @@ cd live-dashboard
 如需启用 AI 每日总结，额外添加 `AI_API_URL`、`AI_API_KEY`（和可选的 `AI_MODEL`）环境变量即可。
 main 的新能力（多面板聚合 `EXTERNAL_DASHBOARDS`、自定义应用映射 `custom-mappings.json`、私密应用匿名化）本分支同样支持。
 
+## 致谢
+
+感谢以下社区成员的代码贡献与思路（对应代码处均有署名注释）：
+
+- [@Steve5wutongyu6](https://github.com/Steve5wutongyu6) — macOS Agent 托盘/设置窗崩溃修复方案（PR #35），主干修复基于其思路扩展
+- [@nmb1337](https://github.com/nmb1337) — Android 保活看门狗思路（PR #37）、Agent 设置窗「测试连接」交互、CI 自动构建 APK 的做法
+- [@qwe5283](https://github.com/qwe5283) — 发现并修复健康数据两个关键 bug：会话型记录（睡眠/锻炼）增量同步漏报、记录被数据源修正后旧值不更新
+- [@luckylaiCN](https://github.com/luckylaiCN) — Agent 打包（PyInstaller）路径兼容修复
+
+也感谢每一位提交 issue、参与测试的朋友。
+
 ## 许可证
 
 MIT
