@@ -11,11 +11,14 @@ on:
       macos_ref:
         description: 'macOS source branch/tag/SHA (default: macos-source)'
         default: 'macos-source'
+      android_ref:
+        description: 'Android source branch/tag/SHA (default: android-source)'
+        default: 'android-source'
 
 # Architecture: Agent source code lives on dedicated branches (windows-source,
-# macos-source), not on main. Tag-triggered builds checkout the latest HEAD of
-# each source branch. For reproducible builds, use workflow_dispatch with
-# specific commit SHAs.
+# macos-source, android-source), not on main. Tag-triggered builds checkout the
+# latest HEAD of each source branch. For reproducible builds, use
+# workflow_dispatch with specific commit SHAs.
 
 jobs:
   build-windows:
@@ -60,8 +63,34 @@ jobs:
           name: macos-agent
           path: agents/macos/dist/live-dashboard-agent
 
+  # CI 里自动构建 APK 的做法借鉴自社区 fork 作者 @nmb1337，感谢他的思路——
+  # 此前 APK 一直靠本地构建后手动上传，tag 一打就自动出包省了整个手工环节。
+  # 未配置签名 keystore secrets，构建 debug APK（与历史发布一致，功能无差别）。
+  build-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.android_ref || 'android-source' }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Build APK
+        working-directory: agents/android-app
+        run: ./gradlew -q :app:assembleDebug
+      - name: Rename APK
+        run: cp agents/android-app/app/build/outputs/apk/debug/app-debug.apk live-dashboard.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-app
+          path: live-dashboard.apk
+
   release:
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos, build-android]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -75,12 +104,18 @@ jobs:
         with:
           name: macos-agent
           path: macos-agent
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-app
+          path: android-app
       - name: Prepare release assets
         run: |
           mv windows-agent/live-dashboard-agent.exe .
+          mv android-app/live-dashboard.apk .
           cd macos-agent && zip ../live-dashboard-agent-macos.zip * && cd ..
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             live-dashboard-agent.exe
             live-dashboard-agent-macos.zip
+            live-dashboard.apk

@@ -13,10 +13,16 @@ const VALID_TYPES = new Set([
   "hydration", "nutrition",
 ]);
 
+// 冲突时更新而不是丢弃：Health Connect 的记录会被数据源事后修正（如手环同步后
+// 补全睡眠时长），DO NOTHING 会让库里永远留着第一次上报的旧值，数值偏小。
+// 修复思路借鉴自社区 fork 作者 @qwe5283，感谢他发现旧值不更新导致的数据偏差问题。
 const insertHealthRecord = db.prepare(`
   INSERT INTO health_records (device_id, type, value, unit, recorded_at, end_time)
   VALUES (?, ?, ?, ?, ?, ?)
-  ON CONFLICT(device_id, type, recorded_at, end_time) DO NOTHING
+  ON CONFLICT(device_id, type, recorded_at, end_time) DO UPDATE SET
+    value = excluded.value,
+    unit = excluded.unit
+  WHERE value IS NOT excluded.value OR unit IS NOT excluded.unit
 `);
 
 const insertMany = db.transaction((records: { deviceId: string; type: string; value: number; unit: string; recordedAt: string; endTime: string }[]) => {
