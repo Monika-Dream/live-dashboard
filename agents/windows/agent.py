@@ -721,7 +721,70 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
         else:
             messagebox.showerror("保存失败", "无法写入 config.json", parent=root)
 
-    # ── 按钮区：主操作粉色实心，取消是安静的文字按钮 ──
+    def on_test():
+        """用输入框里的地址和 Token 真发一次上报，当场告诉用户配置对不对。
+
+        「测试上报」的思路借鉴自社区 fork 作者 @nmb1337（他的 C# 版 agent
+        在设置窗里做了同样的一键连通性验证），感谢他的设计——填完配置
+        不用保存重启、不用瞎猜 Token 对没对，点一下就知道。
+        """
+        server_url = url_var.get().strip()
+        token = token_var.get().strip()
+        if not server_url.startswith(("http://", "https://")):
+            messagebox.showerror("测试失败", "服务器地址必须以 http:// 或 https:// 开头", parent=root)
+            return
+        if not token:
+            messagebox.showerror("测试失败", "Token 还没填，先把面板密钥填上再测试", parent=root)
+            return
+
+        test_btn.config(state="disabled", text="测试中…")
+
+        def report_result(ok: bool, msg: str):
+            test_btn.config(state="normal", text="测试连接")
+            if ok:
+                messagebox.showinfo("测试成功", msg, parent=root)
+            else:
+                messagebox.showerror("测试失败", msg, parent=root)
+
+        def worker():
+            # 拿真实的当前前台窗口发一条上报——成功后打开面板就能看到自己
+            info = None
+            try:
+                info = get_foreground_info()
+            except Exception:
+                pass
+            app_id, title = info if info else ("live-dashboard-agent.exe", "Live Dashboard 设置")
+            try:
+                resp = requests.post(
+                    server_url.rstrip("/") + "/api/report",
+                    json={
+                        "app_id": app_id,
+                        "window_title": title[:256],
+                        "timestamp": datetime.now(timezone.utc)
+                        .isoformat(timespec="milliseconds")
+                        .replace("+00:00", "Z"),
+                    },
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    ok, msg = True, "服务器已收到数据！现在打开面板网页就能看到这台电脑在线了。"
+                elif resp.status_code in (401, 403):
+                    ok, msg = False, "服务器拒绝了这个 Token——检查它和服务器 .env 里的 DEVICE_TOKEN 是否一字不差。"
+                else:
+                    ok, msg = False, f"服务器返回了异常状态码 {resp.status_code}，检查地址填的是不是面板本身。"
+            except requests.exceptions.Timeout:
+                ok, msg = False, "连接超时——服务器没在 10 秒内应答，检查地址是否正确、服务是否在运行。"
+            except requests.exceptions.ConnectionError:
+                ok, msg = False, "连不上服务器——检查地址有没有写错、服务是否已启动、网络是否通。"
+            except Exception as e:
+                ok, msg = False, f"测试出错：{e}"
+            # tkinter 只能在主线程碰 UI，结果调度回主循环弹窗
+            root.after(0, report_result, ok, msg)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    # ── 按钮区：主操作粉色实心，测试是描边次操作，取消是安静的文字按钮 ──
     btn_frame = ttk.Frame(frame, style="Cream.TFrame")
     btn_frame.grid(row=8, column=0, columnspan=2, sticky="e", pady=(14, 0))
     tk.Button(
@@ -729,6 +792,14 @@ def show_settings_dialog(current_config: dict | None = None) -> dict | None:
         bg=_UI_CREAM, fg=_UI_MUTED, activebackground=_UI_CREAM, activeforeground=_UI_TEXT,
         relief="flat", bd=0, font=("Segoe UI", 10), padx=14, pady=4, cursor="hand2",
     ).pack(side="left", padx=(0, 10))
+    test_btn = tk.Button(
+        btn_frame, text="测试连接", command=on_test,
+        bg=_UI_CARD, fg=_UI_TEXT, activebackground=_UI_CREAM, activeforeground=_UI_TEXT,
+        relief="solid", bd=1, font=("Segoe UI", 10), padx=14, pady=3, cursor="hand2",
+        highlightbackground=_UI_BORDER,
+    )
+    test_btn.pack(side="left", padx=(0, 10))
+    _Tooltip(test_btn, "用上面填的地址和 Token 真发一次数据试试水——不用先保存，当场告诉你配置对不对")
     tk.Button(
         btn_frame, text="保存并启动", command=on_save,
         bg=_UI_PRIMARY, fg="white", activebackground=_UI_PRIMARY_DARK, activeforeground="white",
