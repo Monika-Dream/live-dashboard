@@ -16,6 +16,8 @@
 | 三星 Galaxy Watch（国际版） | 三星健康 → Health Connect | ✅ 直接可用（国行三星健康未对接） |
 | 小米/红米手环、红米手表（小米运动健康） | 小米运动健康内开启 Health Connect 连接 | ⚠️ 部分可用，见下方说明 |
 | 华为手环/手表 | 华为运动健康**不支持** Health Connect | ❌ 需桥接，见下方说明 |
+| vivo / iQOO 手环手表 | vivo 健康**不支持** Health Connect | ❌ 同华为，见下方说明 |
+| OPPO / 一加手环手表 | 欢太健康（HeyTap Health）**不支持** Health Connect | ❌ 同华为，见下方说明 |
 | Apple Watch / iPhone | 无 Health Connect，走 Health Auto Export 直传 | ✅ 走另一条路，见下方说明 |
 | Gadgetbridge 支持的设备 | Gadgetbridge 替代官方 App | ⚠️ 极客向，适配见其官网 |
 
@@ -35,6 +37,16 @@
 - **极客向：[Gadgetbridge](https://gadgetbridge.org/)** 完全替代华为运动健康直连手环（丢失官方 App 功能，普通用户不推荐）。
 
 本项目**不会**直接对接华为 Health Kit 云 API（需要开发者资质审批、账号地区限制多，维护成本远超收益）。
+
+## vivo / iQOO、OPPO / 一加用户须知
+
+vivo 健康、欢太健康与华为一样生态封闭，**不写入 Health Connect**——所以即使你在本 App 里授权了全部
+Health Connect 权限，读到的也是空的（数据都在厂商 App 自己手里，Health Connect 里本来就没有）。
+
+- 绕法同华为：[Health Sync](https://healthsync.app/) 桥接（装前先在其官网确认支持你的设备型号）或
+  [Gadgetbridge](https://gadgetbridge.org/)（极客向）。
+- 快速自检"到底是谁的问题"：打开系统的 Health Connect 页面（设置里搜"Health Connect"）→ 数据和访问权限
+  → 看有没有任何 App 在**写入**数据。如果写入列表是空的，说明没有数据源，装什么面板都读不到。
 
 ## iPhone / Apple Watch 用户（无需安装本项目 App）
 

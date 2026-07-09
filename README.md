@@ -3,6 +3,8 @@
 > `redesign/blossom-letter` 分支 — 文艺书卷风前端重设计
 >
 > 基础功能、Agent 配置、后端部署等通用文档请参阅 [`main` 分支 README](https://github.com/Monika-Dream/live-dashboard/tree/main#readme)。
+>
+> 🤖 **用 AI 帮你部署？** 把 [AI_README.md](AI_README.md) 喂给你的 AI 助手——专门写给 AI 读的部署手册（环境变量真源表 / 自检清单 / 踩坑排查表）。
 
 ## 预览
 
