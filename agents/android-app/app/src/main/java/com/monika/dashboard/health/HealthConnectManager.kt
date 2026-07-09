@@ -21,6 +21,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
@@ -133,7 +134,6 @@ class HealthConnectManager(private val context: Context) {
         until: Instant = Instant.now()
     ): HealthReadResult {
         if (!since.isBefore(until)) return HealthReadResult(emptyList(), attemptedTypes = 0, deniedTypes = 0)
-        val timeRange = TimeRangeFilter.between(since, until)
 
         // 先按授权状态过滤类型，避免把权限错误和读取错误混在一起。
         val granted = getGrantedPermissions()
@@ -166,7 +166,7 @@ class HealthConnectManager(private val context: Context) {
         for (type in permittedTypes) {
             try {
                 val results = withTimeout(15_000L) {
-                    readByType(type, timeRange)
+                    readByType(type, since, until)
                 }
                 if (results.isNotEmpty()) {
                     DebugLog.log("健康", "${type.displayName}: ${results.size} 条")
@@ -233,8 +233,18 @@ class HealthConnectManager(private val context: Context) {
 
     private suspend fun readByType(
         type: HealthDataType,
-        timeRange: TimeRangeFilter
+        since: Instant,
+        until: Instant
     ): List<ReportClient.HealthRecord> {
+        // 睡眠/锻炼是会话型记录，Health Connect 按 startTime 过滤：昨晚 23 点开始的睡眠，
+        // startTime 早于增量游标，统一时间窗下永远查不到，导致漏报。
+        // 对这两类把查询窗口向前回看（睡眠 24h / 锻炼 12h），重复上报由服务端 upsert 幂等去重。
+        // 修复思路借鉴自社区 fork 作者 @qwe5283（commit e73cd78a），感谢他发现并定位了这个漏报问题。
+        val timeRange = when (type) {
+            HealthDataType.SLEEP -> TimeRangeFilter.between(since.minus(24, ChronoUnit.HOURS), until)
+            HealthDataType.EXERCISE -> TimeRangeFilter.between(since.minus(12, ChronoUnit.HOURS), until)
+            else -> TimeRangeFilter.between(since, until)
+        }
         return when (type) {
             HealthDataType.HEART_RATE -> readHeartRate(timeRange)
             HealthDataType.RESTING_HEART_RATE -> readRestingHeartRate(timeRange)
