@@ -22,7 +22,7 @@ function extractDomains(text: string): string[] {
         .replace(/^(?:www\.|m\.)/i, "")
         .toLowerCase()
         .split("/")[0];
-      domains.push(cleaned);
+      if (cleaned) domains.push(cleaned);
     }
   }
   return domains;

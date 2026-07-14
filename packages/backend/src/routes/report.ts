@@ -69,7 +69,8 @@ export async function handleReport(req: Request): Promise<Response> {
   // javaw 等宿主进程先用窗口标题识别真实身份（issue #43：JQuake 被判成 Minecraft），
   // 客户端显式上报的 app_label 优先于标题推断。
   const hostLabel = resolveHostAppLabel(appId, windowTitle);
-  let { appName } = resolveAppMeta(appId, device.platform, appLabel ?? hostLabel);
+  // || 而非 ??：app_label 为空串时也应回落到标题识别
+  let { appName } = resolveAppMeta(appId, device.platform, appLabel || hostLabel);
   let effectiveAppId = appId;
 
   // 私密应用（银行/密码管理器等）：写入前整体匿名化，app_id/标题一概不落库。
