@@ -1,5 +1,5 @@
 import { authenticateToken } from "../middleware/auth";
-import { resolveAppMeta } from "../services/app-mapper";
+import { resolveAppMeta, resolveHostAppLabel } from "../services/app-mapper";
 import { isNSFW } from "../services/nsfw-filter";
 import { isSecretApp, processDisplayTitle, SECRET_APP_NAME } from "../services/privacy-tiers";
 import { canReportActivity, insertActivity, upsertDeviceState, hmacTitle } from "../db";
@@ -65,8 +65,12 @@ export async function handleReport(req: Request): Promise<Response> {
     return Response.json({ ok: true });
   }
 
-  // Resolve app name（app_label 作为映射未命中时的兜底，secret 判定同样覆盖它）
-  let { appName } = resolveAppMeta(appId, device.platform, appLabel);
+  // Resolve app name（app_label 作为映射未命中时的兜底，secret 判定同样覆盖它）。
+  // javaw 等宿主进程先用窗口标题识别真实身份（issue #43：JQuake 被判成 Minecraft），
+  // 客户端显式上报的 app_label 优先于标题推断。
+  const hostLabel = resolveHostAppLabel(appId, windowTitle);
+  // || 而非 ??：app_label 为空串时也应回落到标题识别
+  let { appName } = resolveAppMeta(appId, device.platform, appLabel || hostLabel);
   let effectiveAppId = appId;
 
   // 私密应用（银行/密码管理器等）：写入前整体匿名化，app_id/标题一概不落库。

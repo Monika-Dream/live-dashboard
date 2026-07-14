@@ -112,6 +112,10 @@ db.run(`
   CREATE INDEX IF NOT EXISTS idx_health_records_type
   ON health_records(type, recorded_at)
 `);
+db.run(`
+  CREATE INDEX IF NOT EXISTS idx_health_records_device_recorded
+  ON health_records(device_id, recorded_at)
+`);
 
 // ── Device consent table (privacy/compliance) ──
 // consent 的概念与 device_consents 表结构参考了 @nmb1337 在 PR #37 中的
@@ -175,15 +179,15 @@ export const getRecentActivities = db.prepare(`
   SELECT * FROM activities ORDER BY started_at DESC LIMIT 20
 `);
 
-export const getTimelineByDate = db.prepare(`
+export const getTimelineByRange = db.prepare(`
   SELECT * FROM activities
-  WHERE date(started_at) = ?
+  WHERE started_at >= ? AND started_at < ?
   ORDER BY started_at ASC
 `);
 
-export const getTimelineByDateAndDevice = db.prepare(`
+export const getTimelineByRangeAndDevice = db.prepare(`
   SELECT * FROM activities
-  WHERE date(started_at) = ? AND device_id = ?
+  WHERE device_id = ? AND started_at >= ? AND started_at < ?
   ORDER BY started_at ASC
 `);
 

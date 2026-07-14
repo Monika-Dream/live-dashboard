@@ -1,4 +1,5 @@
-import { getTimelineByDate, upsertDailySummary } from "../db";
+import { getTimelineByRange, upsertDailySummary } from "../db";
+import { getUtcDayRange } from "./date-range";
 
 /**
  * AI Daily Summary Generator
@@ -62,7 +63,11 @@ export async function generateDailySummary(): Promise<void> {
   }
 
   const date = todayStr();
-  const rows = getTimelineByDate.all(date) as ActivityRow[];
+  // "今天" = 进程时区的今天；换算成 UTC 范围走索引查询（main 已移除按日截断的旧语句）
+  const dayRange = getUtcDayRange(date, new Date().getTimezoneOffset());
+  const rows = dayRange
+    ? (getTimelineByRange.all(dayRange.start, dayRange.end) as ActivityRow[])
+    : [];
   if (rows.length === 0) {
     console.log("[ai-summary] No activity data for today, skipping");
     return;

@@ -432,14 +432,14 @@ function extractIDETitle(title: string): string {
   if (title.includes(" – ")) {
     const parts = title.split(" – ");
     // First part is typically the project name
-    return parts[0].trim();
+    return (parts[0] ?? "").trim();
   }
 
   // Sublime Text: split by " - " (hyphen), last is app name
   if (title.includes(" - ")) {
     const parts = title.split(" - ");
     if (parts.length >= 2) {
-      const last = parts[parts.length - 1].trim().toLowerCase();
+      const last = (parts[parts.length - 1] ?? "").trim().toLowerCase();
       if (last === "sublime text") {
         return parts.slice(0, -1).join(" - ").trim();
       }
