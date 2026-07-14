@@ -1,10 +1,10 @@
 import {
-  getTimelineByDate,
-  getTimelineByDateAndDevice,
+  getTimelineByRange,
+  getTimelineByRangeAndDevice,
 } from "../db";
 import type { ActivityRecord, TimelineSegment } from "../types";
-import { db } from "../db";
 import { isConfiguredDeviceId } from "../middleware/auth";
+import { getUtcDayRange, parseTimezoneOffset } from "../services/date-range";
 import { resolveAppMeta } from "../services/app-mapper";
 
 export function handleTimeline(url: URL): Response {
@@ -16,9 +16,16 @@ export function handleTimeline(url: URL): Response {
     );
   }
 
-  // Accept timezone offset in minutes (e.g. -480 for UTC+8)
-  const tzParam = url.searchParams.get("tz");
-  const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
+  // Browser timezone offset in minutes (e.g. -480 for UTC+8).
+  const tzOffsetMinutes = parseTimezoneOffset(url.searchParams.get("tz"));
+  if (tzOffsetMinutes === null) {
+    return Response.json({ error: "invalid tz offset" }, { status: 400 });
+  }
+
+  const dayRange = getUtcDayRange(date, tzOffsetMinutes);
+  if (!dayRange) {
+    return Response.json({ error: "invalid date" }, { status: 400 });
+  }
 
   const deviceId = url.searchParams.get("device_id");
 
@@ -26,30 +33,13 @@ export function handleTimeline(url: URL): Response {
     return Response.json({ date, segments: [], summary: {} });
   }
 
-  let activities: ActivityRecord[];
-
-  if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
-    // Convert offset minutes to SQLite time modifier format (e.g. "+08:00" for tz=-480)
-    const offsetHours = -tzOffsetMinutes / 60;
-    const sign = offsetHours >= 0 ? "+" : "-";
-    const absH = Math.floor(Math.abs(offsetHours));
-    const absM = Math.round((Math.abs(offsetHours) - absH) * 60);
-    const modifier = `${sign}${String(absH).padStart(2, "0")}:${String(absM).padStart(2, "0")}`;
-
-    // Query with timezone adjustment: convert started_at to user's local date
-    const query = deviceId
-      ? db.prepare(`SELECT * FROM activities WHERE date(started_at, '${modifier}') = ? AND device_id = ? ORDER BY started_at ASC`)
-      : db.prepare(`SELECT * FROM activities WHERE date(started_at, '${modifier}') = ? ORDER BY started_at ASC`);
-
-    activities = deviceId
-      ? (query.all(date, deviceId) as ActivityRecord[])
-      : (query.all(date) as ActivityRecord[]);
-  } else {
-    // No timezone offset — use UTC (backwards compatible)
-    activities = deviceId
-      ? (getTimelineByDateAndDevice.all(date, deviceId) as ActivityRecord[])
-      : (getTimelineByDate.all(date) as ActivityRecord[]);
-  }
+  let activities = deviceId
+    ? (getTimelineByRangeAndDevice.all(
+        deviceId,
+        dayRange.start,
+        dayRange.end,
+      ) as ActivityRecord[])
+    : (getTimelineByRange.all(dayRange.start, dayRange.end) as ActivityRecord[]);
 
   activities = activities.filter((activity) => isConfiguredDeviceId(activity.device_id));
 
@@ -59,18 +49,23 @@ export function handleTimeline(url: URL): Response {
   // so a 2-minute gap means the device went away.
   const GAP_THRESHOLD_MS = 2 * 60 * 1000;
 
+  // Find the next activity for every device in one reverse pass. The former
+  // nested forward search was O(n²) for interleaved device timelines.
+  const nextStartedAt = new Array<string | null>(activities.length).fill(null);
+  const nextByDevice = new Map<string, string>();
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const activity = activities[i];
+    if (!activity) continue;
+    nextStartedAt[i] = nextByDevice.get(activity.device_id) ?? null;
+    nextByDevice.set(activity.device_id, activity.started_at);
+  }
+
   const segments: TimelineSegment[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
+    if (!a) continue;
     const { appName, statusText } = resolveAppMeta(a.app_id, a.platform, a.app_name);
-    // Find next activity on same device to compute end time
-    let endedAt: string | null = null;
-    for (let j = i + 1; j < activities.length; j++) {
-      if (activities[j].device_id === a.device_id) {
-        endedAt = activities[j].started_at;
-        break;
-      }
-    }
+    let endedAt = nextStartedAt[i] ?? null;
 
     const startMs = new Date(a.started_at).getTime();
     if (isNaN(startMs)) continue; // skip malformed timestamps

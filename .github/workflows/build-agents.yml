@@ -63,7 +63,8 @@ jobs:
           name: macos-agent
           path: agents/macos/dist/live-dashboard-agent
 
-  # CI 里自动构建 APK 的做法借鉴自社区 fork 作者 @nmb1337，感谢他的思路——
+  # CI 里自动构建 APK 的做法借鉴自社区 fork 作者 @nmb1337
+  # （github.com/nmb1337/live-dashboard），感谢他的思路——
   # 此前 APK 一直靠本地构建后手动上传，tag 一打就自动出包省了整个手工环节。
   # 未配置签名 keystore secrets，构建 debug APK（与历史发布一致，功能无差别）。
   build-android:

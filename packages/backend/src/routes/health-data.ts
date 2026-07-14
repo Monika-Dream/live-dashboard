@@ -1,5 +1,6 @@
 import { authenticateToken, isConfiguredDeviceId } from "../middleware/auth";
 import { canReportHealth, db } from "../db";
+import { getUtcDayRange, parseTimezoneOffset } from "../services/date-range";
 import type { HealthRecord } from "../types";
 
 const MAX_RECORDS_PER_REQUEST = 500;
@@ -15,7 +16,8 @@ const VALID_TYPES = new Set([
 
 // 冲突时更新而不是丢弃：Health Connect 的记录会被数据源事后修正（如手环同步后
 // 补全睡眠时长），DO NOTHING 会让库里永远留着第一次上报的旧值，数值偏小。
-// 修复思路借鉴自社区 fork 作者 @qwe5283，感谢他发现旧值不更新导致的数据偏差问题。
+// 修复思路借鉴自社区 fork 作者 @qwe5283（github.com/qwe5283/live-dashboard），
+// 感谢他发现旧值不更新导致的数据偏差问题。
 const insertHealthRecord = db.prepare(`
   INSERT INTO health_records (device_id, type, value, unit, recorded_at, end_time)
   VALUES (?, ?, ?, ?, ?, ?)
@@ -118,50 +120,18 @@ export function handleHealthDataQuery(url: URL): Response {
     return Response.json({ date, records: [] });
   }
 
-  // Accept timezone offset in minutes (e.g. -480 for UTC+8), same as /api/timeline
-  const tzParam = url.searchParams.get("tz");
-  const tzOffsetMinutes = tzParam ? parseInt(tzParam, 10) : 0;
+  // Browser timezone offset in minutes (e.g. -480 for UTC+8), same as /api/timeline.
+  const tzOffsetMinutes = parseTimezoneOffset(url.searchParams.get("tz"));
+  if (tzOffsetMinutes === null) {
+    return Response.json({ error: "invalid tz offset" }, { status: 400 });
+  }
+
+  const dayRange = getUtcDayRange(date, tzOffsetMinutes);
+  if (!dayRange) {
+    return Response.json({ error: "invalid date" }, { status: 400 });
+  }
 
   try {
-    if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
-      // Convert offset to SQLite modifier (e.g. tz=-480 → "+08:00")
-      const offsetHours = -tzOffsetMinutes / 60;
-      const sign = offsetHours >= 0 ? "+" : "-";
-      const absH = Math.floor(Math.abs(offsetHours));
-      const absM = Math.round((Math.abs(offsetHours) - absH) * 60);
-      const modifier = `${sign}${String(absH).padStart(2, "0")}:${String(absM).padStart(2, "0")}`;
-
-      let records: HealthRecord[];
-      if (deviceId) {
-        records = db.prepare(`
-          SELECT device_id, type, value, unit, recorded_at, end_time
-          FROM health_records
-          WHERE date(recorded_at, '${modifier}') = ? AND device_id = ?
-          ORDER BY recorded_at ASC
-        `).all(date, deviceId) as HealthRecord[];
-      } else {
-        records = db.prepare(`
-          SELECT device_id, type, value, unit, recorded_at, end_time
-          FROM health_records
-          WHERE date(recorded_at, '${modifier}') = ?
-          ORDER BY recorded_at ASC
-        `).all(date) as HealthRecord[];
-      }
-
-      records = records.filter((record) => isConfiguredDeviceId(record.device_id));
-
-      return Response.json({ date, records });
-    }
-
-    // No timezone offset — use UTC (backwards compatible)
-    const startOfDay = `${date}T00:00:00.000Z`;
-    const d = new Date(startOfDay);
-    if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) {
-      return Response.json({ error: "Invalid date" }, { status: 400 });
-    }
-    d.setUTCDate(d.getUTCDate() + 1);
-    const startOfNextDay = d.toISOString();
-
     let records: HealthRecord[];
     if (deviceId) {
       records = db.prepare(`
@@ -169,14 +139,14 @@ export function handleHealthDataQuery(url: URL): Response {
         FROM health_records
         WHERE recorded_at >= ? AND recorded_at < ? AND device_id = ?
         ORDER BY recorded_at ASC
-      `).all(startOfDay, startOfNextDay, deviceId) as HealthRecord[];
+      `).all(dayRange.start, dayRange.end, deviceId) as HealthRecord[];
     } else {
       records = db.prepare(`
         SELECT device_id, type, value, unit, recorded_at, end_time
         FROM health_records
         WHERE recorded_at >= ? AND recorded_at < ?
         ORDER BY recorded_at ASC
-      `).all(startOfDay, startOfNextDay) as HealthRecord[];
+      `).all(dayRange.start, dayRange.end) as HealthRecord[];
     }
 
     records = records.filter((record) => isConfiguredDeviceId(record.device_id));
