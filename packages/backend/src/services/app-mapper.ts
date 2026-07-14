@@ -35,6 +35,65 @@ function getOverride(appId: string, platform: string) {
   return appOverrides[normalizedPlatform][appId.toLowerCase()];
 }
 
+// ── 宿主进程：标题感知识别（issue #43）──────────────────────────────
+// JVM 这类宿主进程自己不代表任何应用——Minecraft、JQuake、Ghidra 的前台
+// 进程全都叫 javaw.exe，真实身份只能从窗口标题读。以前 app-names.json 里
+// "javaw.exe" → "Minecraft" 的无条件映射把所有 Java 桌面程序都判成了挖矿。
+// 只在写侧生效：report.ts 把识别结果当 fallbackLabel 传入 resolveAppMeta，
+// 数据库里存的已是识别后的名字，读侧拿不到标题也不需要。
+const HOST_PROCESS_IDS = new Set(["javaw.exe", "java.exe", "javaw", "java"]);
+
+// 先具体后宽泛；返回规范名，让 status-texts 的精确文案接得上。
+// Minecraft 放最前：官方标题 "Minecraft* 1.21.x"、第三方启动器（HMCL 的
+// "Hello Minecraft! Launcher" 等）都含这个词。
+const HOST_TITLE_SIGNATURES: Array<[RegExp, string]> = [
+  [/minecraft/i, "Minecraft"],
+  [/jquake/i, "JQuake"],
+  [/ghidra/i, "Ghidra"],
+  [/jadx/i, "jadx"],
+  [/jdownloader/i, "JDownloader"],
+  [/burp suite/i, "Burp Suite"],
+  [/runelite/i, "RuneLite"],
+  [/dbeaver/i, "DBeaver"],
+  [/jmeter/i, "JMeter"],
+  [/visualvm/i, "VisualVM"],
+  [/arduino/i, "Arduino IDE"],
+  [/jd-gui/i, "JD-GUI"],
+];
+
+/**
+ * 宿主进程（JVM 等）的真实应用名识别。非宿主进程返回 undefined，
+ * 走正常映射链。产出只作为 fallbackLabel 参与解析，所以 custom/
+ * overrides 依然能覆盖它，SECRET 判定也照常作用于识别结果。
+ */
+export function resolveHostAppLabel(
+  appId: string,
+  windowTitle?: string
+): string | undefined {
+  if (!appId || !HOST_PROCESS_IDS.has(appId.toLowerCase())) return undefined;
+  const title = (windowTitle ?? "").trim();
+  if (!title) return "Java 应用";
+  for (const [pattern, name] of HOST_TITLE_SIGNATURES) {
+    if (pattern.test(title)) return name;
+  }
+  return guessAppNameFromTitle(title) ?? "Java 应用";
+}
+
+// 签名表没命中时从标题猜：Windows 标题惯例是「文档 - 应用名」，应用名在
+// 最后一段（"README.md - Notepad++"）；单段标题通常本身就是应用名
+// （"JQuake"）。尾部版本号剥掉（"JQuake 1.8.5" → "JQuake"）。取末段而非
+// 全标题也是隐私考量：文档名/网页题留在前段，不会被当成应用名落库。
+// 产出后续仍会过 sanitizeLabel 消毒。
+function guessAppNameFromTitle(title: string): string | undefined {
+  const parts = title.split(/\s+[-—–|·]\s+/);
+  const last = (parts[parts.length - 1] ?? "")
+    .trim()
+    .replace(/\s+v?\d+(\.\d+)+\s*$/i, "")
+    .trim();
+  if (!last || last.length > 48) return undefined;
+  return last;
+}
+
 function resolveBaseAppName(
   appId: string,
   platform: string,
