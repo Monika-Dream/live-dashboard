@@ -20,10 +20,20 @@ for (const [key, value] of Object.entries(appNamesData.macos)) {
   macosMap.set(key.toLowerCase(), value);
 }
 
-type SupportedPlatform = "windows" | "android" | "macos";
+const linuxMap = new Map<string, string>();
+for (const [key, value] of Object.entries(appNamesData.linux)) {
+  linuxMap.set(key.toLowerCase(), value);
+}
+
+type SupportedPlatform = "windows" | "android" | "macos" | "linux";
 
 function normalizePlatform(platform: string): SupportedPlatform | null {
-  if (platform === "windows" || platform === "android" || platform === "macos") {
+  if (
+    platform === "windows" ||
+    platform === "android" ||
+    platform === "macos" ||
+    platform === "linux"
+  ) {
     return platform;
   }
   return null;
@@ -122,6 +132,19 @@ function resolveBaseAppName(
       return last.charAt(0).toUpperCase() + last.slice(1);
     }
     return appId;
+  }
+
+  if (platform === "linux") {
+    // Linux 上报的是 X11 WM_CLASS res_class 或 Wayland app_id（issue #46）。
+    // flatpak 反域名风格（org.mozilla.firefox）没命中映射时取末段并首字母大写，
+    // 与 android 包名兜底同理；普通标识（firefox）首字母大写即可读。
+    const found = linuxMap.get(lower);
+    if (found) return found;
+    if (fallbackLabel) return fallbackLabel;
+    const last = appId.includes(".")
+      ? appId.split(".").pop() ?? appId
+      : appId;
+    return last.charAt(0).toUpperCase() + last.slice(1);
   }
 
   // macos: System Events already returns human-readable names (e.g. "Google Chrome").

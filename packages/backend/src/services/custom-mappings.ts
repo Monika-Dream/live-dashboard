@@ -15,6 +15,7 @@
  *   "windows": { "someapp.exe":  { "name": "某应用", "statusText": "正在搞事情喵~" } },
  *   "android": { "com.foo.bar":  { "name": "某应用" } },
  *   "macos":   { "SomeApp":      { "statusText": "正在忙喵~" } },
+ *   "linux":   { "someapp":      { "name": "某应用" } },
  *   "statusTexts": { "某应用": "正在搞事情喵~" }
  * }
  *
@@ -34,13 +35,14 @@ const MAX_KEY_LENGTH = 160;
 const MAX_NAME_LENGTH = 64;
 const MAX_STATUS_TEXT_LENGTH = 128;
 
-const PLATFORMS = ["windows", "android", "macos"] as const;
+const PLATFORMS = ["windows", "android", "macos", "linux"] as const;
 type Platform = (typeof PLATFORMS)[number];
 
 const customByPlatform: Record<Platform, Map<string, CustomOverrideEntry>> = {
   windows: new Map(),
   android: new Map(),
   macos: new Map(),
+  linux: new Map(),
 };
 const customStatusTexts = new Map<string, string>();
 
@@ -138,10 +140,10 @@ export function getCustomOverride(
   platform: string
 ): CustomOverrideEntry | undefined {
   if (!appId) return undefined;
-  if (platform !== "windows" && platform !== "android" && platform !== "macos") {
+  if (!(PLATFORMS as readonly string[]).includes(platform)) {
     return undefined;
   }
-  return customByPlatform[platform].get(appId.toLowerCase());
+  return customByPlatform[platform as Platform].get(appId.toLowerCase());
 }
 
 /** 按映射后的应用名查用户自定义文案；无自定义时返回 undefined。 */
