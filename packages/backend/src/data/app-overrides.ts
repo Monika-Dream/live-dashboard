@@ -9,6 +9,7 @@ export const appOverrides: {
   windows: PlatformOverrides;
   android: PlatformOverrides;
   macos: PlatformOverrides;
+  linux: PlatformOverrides;
 } = {
   windows: {
     // Example:
@@ -29,6 +30,13 @@ export const appOverrides: {
     // "com.spotify.client": {
     //   name: "Spotify",
     //   statusText: "正在Spotify听歌喵~",
+    // },
+  },
+  linux: {
+    // Example:
+    // "org.mozilla.firefox": {
+    //   name: "Firefox",
+    //   statusText: "正在Firefox冲浪喵~",
     // },
   },
 };

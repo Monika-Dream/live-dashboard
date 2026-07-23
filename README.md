@@ -26,7 +26,7 @@
 - 系统托盘常驻 + AFK 检测（看视频/听歌时自动豁免）
 - 音乐检测（Spotify、QQ音乐、网易云等）
 - Health Connect 健康数据同步（Android）
-- 多设备多平台支持（Windows / macOS / Android）
+- 多设备多平台支持（Windows / macOS / Linux / Android）
 
 ## 快速开始
 
@@ -58,6 +58,7 @@ echo "Token: $TOKEN  ← Agent 配置用"
 | Windows | `live-dashboard-agent.exe` | [Wiki - Windows Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Windows) |
 | macOS | `live-dashboard-agent-macos.zip` | [Wiki - macOS Agent](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-macOS) |
 | Android | `live-dashboard.apk` | [Wiki - Android App](https://github.com/Monika-Dream/live-dashboard/wiki/Agent-配置-Android) |
+| Linux | `live-dashboard-agent-linux` | [`linux-source` 分支 README](https://github.com/Monika-Dream/live-dashboard/tree/linux-source/agents/linux#readme) |
 
 ## 主题
 
@@ -75,16 +76,18 @@ echo "Token: $TOKEN  ← Agent 配置用"
 | `windows-source` | Windows Agent 源码（Python） |
 | `macos-source` | macOS Agent 源码（Python） |
 | `android-source` | Android App 源码（Kotlin） |
+| `linux-source` | Linux Agent 源码（Python） |
 
 ## 技术栈
 
 | 组件 | 技术 |
 |------|------|
 | 后端 | Bun + TypeScript + SQLite |
-| 前端 | Next.js 15 + React 19 + Tailwind CSS 4（静态导出） |
+| 前端 | Next.js 16 + React 19 + Tailwind CSS 4（静态导出） |
 | Windows Agent | Python + Win32 API + pystray + pycaw |
 | macOS Agent | Python + AppleScript + pystray |
 | Android App | Kotlin + Jetpack Compose + Health Connect |
+| Linux Agent | Python + X11/Wayland 分层检测 + MPRIS + pystray |
 | 部署 | Docker 多阶段构建 + Nginx |
 
 ## 文档
@@ -118,11 +121,12 @@ echo "Token: $TOKEN  ← Agent 配置用"
   "windows": { "mygame.exe": { "name": "我的游戏", "statusText": "正在打自己做的游戏喵~" } },
   "android": { "com.example.app": { "name": "某应用" } },
   "macos":   { "SomeApp": { "statusText": "正在用 SomeApp 干活喵~" } },
+  "linux":   { "someapp": { "name": "某应用" } },
   "statusTexts": { "微信": "正在微信上谈大生意喵~" }
 }
 ```
 
-- `windows` / `android` / `macos` 段按原始 `app_id`（进程名 / 包名，大小写不敏感）匹配
+- `windows` / `android` / `macos` / `linux` 段按原始 `app_id`（进程名 / 包名，大小写不敏感）匹配
 - `statusTexts` 段按映射后的应用名匹配，用来给内置应用换文案
 - **与内置条目冲突时，以你的 JSON 为准**；非法条目会被跳过并在日志里提示
 

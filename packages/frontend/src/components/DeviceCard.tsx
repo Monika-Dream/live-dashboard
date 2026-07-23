@@ -3,6 +3,8 @@ import type { DeviceState } from "@/lib/api";
 const platformIcons: Record<string, string> = {
   windows: "\u{1F5A5}",
   android: "\u{1F4F1}",
+  macos: "\u{1F4BB}",
+  linux: "\u{1F427}",
 };
 
 function timeAgo(isoStr: string): string {

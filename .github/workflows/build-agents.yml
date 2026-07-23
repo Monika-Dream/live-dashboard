@@ -14,6 +14,9 @@ on:
       android_ref:
         description: 'Android source branch/tag/SHA (default: android-source)'
         default: 'android-source'
+      linux_ref:
+        description: 'Linux source branch/tag/SHA (default: linux-source)'
+        default: 'linux-source'
 
 # Architecture: Agent source code lives on dedicated branches (windows-source,
 # macos-source, android-source), not on main. Tag-triggered builds checkout the
@@ -63,6 +66,27 @@ jobs:
           name: macos-agent
           path: agents/macos/dist/live-dashboard-agent
 
+  build-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.linux_ref || 'linux-source' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r agents/linux/requirements.txt pyinstaller
+      - name: Build executable
+        working-directory: agents/linux
+        run: pyinstaller --onefile --name live-dashboard-agent agent.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-agent
+          path: agents/linux/dist/live-dashboard-agent
+
   # CI 里自动构建 APK 的做法借鉴自社区 fork 作者 @nmb1337
   # （github.com/nmb1337/live-dashboard），感谢他的思路——
   # 此前 APK 一直靠本地构建后手动上传，tag 一打就自动出包省了整个手工环节。
@@ -91,7 +115,7 @@ jobs:
           path: live-dashboard.apk
 
   release:
-    needs: [build-windows, build-macos, build-android]
+    needs: [build-windows, build-macos, build-android, build-linux]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -109,10 +133,15 @@ jobs:
         with:
           name: android-app
           path: android-app
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-agent
+          path: linux-agent
       - name: Prepare release assets
         run: |
           mv windows-agent/live-dashboard-agent.exe .
           mv android-app/live-dashboard.apk .
+          mv linux-agent/live-dashboard-agent live-dashboard-agent-linux
           cd macos-agent && zip ../live-dashboard-agent-macos.zip * && cd ..
       - uses: softprops/action-gh-release@v2
         with:
@@ -120,3 +149,4 @@ jobs:
             live-dashboard-agent.exe
             live-dashboard-agent-macos.zip
             live-dashboard.apk
+            live-dashboard-agent-linux
