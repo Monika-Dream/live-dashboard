@@ -1,61 +1,63 @@
-# Live Dashboard — macOS Agent 源码
+# Live Dashboard — Linux Agent 源码
 
-> `macos-source` 分支 — macOS 桌面端 Agent 源码
+> `linux-source` 分支 — Linux 桌面端 Agent 源码（issue #46）
 >
 > 服务端部署、前端功能、API 参考等通用文档请参阅 [`main` 分支 README](https://github.com/Monika-Dream/live-dashboard/tree/main#readme)。
 
-> **注意**：macOS Agent 已实现全部功能，但由于缺少 macOS 测试环境，尚未经过实机验证。如有问题欢迎 [提 issue](https://github.com/Monika-Dream/live-dashboard/issues)。
-
 ## 下载
 
-预编译版本可从 [GitHub Releases](https://github.com/Monika-Dream/live-dashboard/releases) 下载 `live-dashboard-agent-macos.zip`。
+预编译版本可从 [GitHub Releases](https://github.com/Monika-Dream/live-dashboard/releases) 下载 `live-dashboard-agent-linux`。
 
 ## 这个分支包含什么
 
-macOS Agent 是一个 Python 桌面程序，监控前台窗口并向 Live Dashboard 后端实时上报应用使用状态。启动后常驻菜单栏运行。
+Linux Agent 是一个 Python 桌面程序，监控前台窗口并向 Live Dashboard 后端实时上报应用使用状态。启动后常驻系统托盘运行。
 
 ### 功能
 
 | 功能 | 说明 |
 |------|------|
-| **前台应用检测** | 通过 AppleScript 获取前台应用名和窗口标题 |
-| **音乐检测** | 查询 Spotify、Apple Music、QQ音乐、网易云音乐的播放状态和歌曲信息 |
-| **电量上报** | 通过 psutil 获取 MacBook 电池电量和充电状态 |
-| **AFK 检测** | IOKit `HIDIdleTime` 检测键鼠空闲，超过阈值（默认 5 分钟）后进入 AFK |
-| **视频/音频免 AFK** | 有音频播放（pmset assertions）或前台全屏（AXFullScreen）时不进入 AFK |
-| **系统托盘** | pystray 菜单栏图标，右键查看状态、重载配置、安全退出 |
+| **前台应用检测** | 分层通道：Sway (swaymsg) / Hyprland (hyprctl) / X11 及 XWayland (xprop)，启动时自动探测 |
+| **音乐检测** | MPRIS D-Bus（Linux 标准媒体协议）——Spotify、VLC、mpv、浏览器等全部支持；playerctl 优先，gdbus 兜底 |
+| **电量上报** | 通过 psutil 获取笔记本电池电量和充电状态 |
+| **AFK 检测** | xprintidle → GNOME Mutter IdleMonitor → org.freedesktop.ScreenSaver 依序探测键鼠空闲 |
+| **视频/音频免 AFK** | 有音频播放（pactl sink-inputs）或前台全屏时不进入 AFK |
+| **系统托盘** | pystray 托盘图标：状态查看、开机自启（XDG autostart）、日志开关、设置、退出 |
+
+### 会话环境支持
+
+| 环境 | 前台窗口 |
+|------|---------|
+| X11（任意桌面）/ Sway / Hyprland | ✅ 完整支持 |
+| GNOME / KDE 纯 Wayland | ⚠️ 仅 XWayland 应用可识别（合成器不向第三方暴露原生窗口，无解）；在线状态/电池/音乐不受影响 |
 
 ### 技术栈
 
 - Python 3.10+ / PyInstaller 打包
-- AppleScript (osascript) — 前台应用检测、全屏状态、音乐播放器查询
-- pystray + Pillow — 菜单栏图标
+- swaymsg / hyprctl / xprop — 前台窗口分层检测
+- gdbus (MPRIS) + playerctl — 音乐播放器查询
+- pystray + Pillow — 托盘图标
 - psutil — 电池信息
-- ioreg / pmset — 空闲时间和音频状态检测
+- xprintidle / D-Bus IdleMonitor — 空闲检测；pactl — 音频状态
 
 ### 文件结构
 
 ```
-agents/macos/
-├── agent.py              # 主程序（747 行）
+agents/linux/
+├── agent.py              # 主程序（单文件实现）
 ├── config.example.json   # 配置模板
 ├── requirements.txt      # Python 依赖
-└── README.md             # 详细使用说明
+└── README.md             # 详细使用说明（依赖安装、支持矩阵、自启动）
 ```
 
 ## 构建
 
 ```bash
-pip install -r agents/macos/requirements.txt pyinstaller
-cd agents/macos
-pyinstaller --onefile --windowed --name live-dashboard-agent agent.py
+pip install -r agents/linux/requirements.txt pyinstaller
+cd agents/linux
+pyinstaller --onefile --name live-dashboard-agent agent.py
 # 产物: dist/live-dashboard-agent
 ```
 
-## 权限要求
-
-首次运行时需在「系统设置 → 隐私与安全性 → 辅助功能」中授权终端或 Python，否则无法获取窗口标题。
-
 ## 使用
 
-详见 [`agents/macos/README.md`](agents/macos/README.md)。
+详见 [`agents/linux/README.md`](agents/linux/README.md)。
