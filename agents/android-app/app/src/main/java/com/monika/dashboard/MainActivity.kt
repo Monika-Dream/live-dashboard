@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         requestNotificationPermission()
         restoreHeartbeatServiceIfNeeded()
+        observeHideFromRecents()
 
         setContent {
             DashboardTheme {
@@ -72,6 +73,25 @@ class MainActivity : ComponentActivity() {
                     arrayOf(Manifest.permission.POST_NOTIFICATIONS),
                     1001
                 )
+            }
+        }
+    }
+
+    /**
+     * 「从最近任务隐藏」（#45）：持续监听设置并应用到当前任务栈。
+     * 隐藏后用户在最近任务里看不到卡片，也就不会顺手划卡把进程杀掉；
+     * 保活链（无障碍 / FGS / 看门狗）不受影响，回到 App 从桌面图标进。
+     * 用 collect 而不是一次性读取——StatusScreen 切换开关时这里即时生效。
+     */
+    private fun observeHideFromRecents() {
+        lifecycleScope.launch {
+            settings.hideFromRecents.collect { hide ->
+                try {
+                    val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+                    am.appTasks.forEach { task -> task.setExcludeFromRecents(hide) }
+                } catch (e: Exception) {
+                    android.util.Log.w("MainActivity", "Failed to apply excludeFromRecents", e)
+                }
             }
         }
     }
@@ -175,7 +195,7 @@ private fun MainContent(settings: SettingsStore, modifier: Modifier = Modifier) 
         when (selectedTab) {
             0 -> SetupScreen(settings)
             1 -> HealthScreen(settings)
-            2 -> StatusScreen()
+            2 -> StatusScreen(settings)
         }
     }
 }

@@ -32,6 +32,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
 import com.monika.dashboard.data.DebugLog
+import com.monika.dashboard.data.SettingsStore
 import com.monika.dashboard.health.BackgroundReadAvailability
 import com.monika.dashboard.health.HealthConnectManager
 import com.monika.dashboard.monitor.CurrentAppDetector
@@ -42,6 +43,7 @@ import com.monika.dashboard.ui.theme.Primary
 import com.monika.dashboard.ui.theme.SakuraBg
 import com.monika.dashboard.ui.theme.TextMuted
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import java.util.Locale
@@ -54,8 +56,9 @@ private val StatusWarn = Color(0xFFE8B86D)
 private enum class PermState { GRANTED, MISSING, MANUAL }
 
 @Composable
-fun StatusScreen() {
+fun StatusScreen(settings: SettingsStore) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -252,6 +255,19 @@ fun StatusScreen() {
                 ) {
                     openMiuiBatterySaver(context)
                 }
+            }
+            RowDivider()
+            // #45：从最近任务隐藏——保活全开也挡不住自己顺手划卡，干脆让卡片不出现
+            val hideFromRecents by settings.hideFromRecents.collectAsState(initial = false)
+            ToggleRow(
+                title = "从最近任务隐藏",
+                subtitle = if (hideFromRecents)
+                    "已隐藏 · 划卡划不到本应用了，回到 App 请从桌面图标进"
+                else
+                    "防止顺手划卡误杀进程；开启后最近任务里不再出现本应用",
+                checked = hideFromRecents
+            ) { checked ->
+                scope.launch { settings.setHideFromRecents(checked) }
             }
         }
 
@@ -510,6 +526,41 @@ private fun PermissionRow(
 @Composable
 private fun RowDivider() {
     Divider(color = Border.copy(alpha = 0.5f), thickness = 1.dp)
+}
+
+/** 功能开关行：与 PermissionRow 同构（状态点 + 标题/说明），右侧换成 Switch。 */
+@Composable
+private fun ToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(
+                    color = if (checked) StatusOk else TextMuted.copy(alpha = 0.4f),
+                    shape = CircleShape
+                )
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyMedium)
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = Primary)
+        )
+    }
 }
 
 /** 后台健康同步状态（保留原判定逻辑，收进健康分组卡内展示）。 */

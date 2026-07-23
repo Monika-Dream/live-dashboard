@@ -31,6 +31,7 @@ class SettingsStore(private val context: Context) {
         val ENABLED_HEALTH_TYPES = stringSetPreferencesKey("enabled_health_types")
         val MONITORING_ENABLED = booleanPreferencesKey("monitoring_enabled")
         val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
+        val HIDE_FROM_RECENTS = booleanPreferencesKey("hide_from_recents")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data.map { prefs ->
@@ -58,6 +59,11 @@ class SettingsStore(private val context: Context) {
         prefs[Keys.LAST_SYNC_TIMESTAMP] ?: 0L
     }
 
+    /** 从最近任务列表隐藏（#45）：防止顺手划卡误杀进程，默认关闭。 */
+    val hideFromRecents: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[Keys.HIDE_FROM_RECENTS] ?: false
+    }
+
     suspend fun setServerUrl(url: String) {
         require(validateUrl(url)) { "Invalid URL: must be HTTPS or local/private HTTP" }
         context.dataStore.edit { it[Keys.SERVER_URL] = url.trim() }
@@ -82,6 +88,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setMonitoringEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.MONITORING_ENABLED] = enabled }
+    }
+
+    suspend fun setHideFromRecents(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.HIDE_FROM_RECENTS] = enabled }
     }
 
     /** 同步游标只允许前进，避免旧任务把新游标回写覆盖。 */
