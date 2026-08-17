@@ -247,8 +247,10 @@ def get_music_info() -> dict | None:
     results: list[tuple[str, str, str]] = []
 
     def enum_callback(hwnd: int, _lParam: int) -> bool:
-        if not IsWindowVisible(hwnd):
-            return True
+        # QQMusic 等播放器把真实“歌名 - 艺人”标题藏在 hidden 窗口
+        # （如 QQMusic 的 COM/Dummy 窗口、DynamicLyricWindow），可见主窗口标题反而是
+        # “QQ音乐”应用名本身，worker 会当 idle 过滤掉。扫描所有窗口，
+        # 按标题质量在最后挑选最佳结果。
         length = GetWindowTextLengthW(hwnd)
         if length <= 0:
             return True
@@ -286,6 +288,18 @@ def get_music_info() -> dict | None:
 
     if not results:
         return None
+    # 多个候选窗口中优先选择含“ - ”分隔符的结果，
+    # 避免应用名本身（“QQ音乐”）被当成 music.title 上报后
+    # 被 worker 当 idle 过滤掉。
+    def song_score(item):
+        _, song, artist = item
+        score = 0
+        if artist:
+            score += 100
+        score += min(len(song), 40)
+        return score
+
+    results.sort(key=song_score, reverse=True)
     app, title, artist = results[0]
     info: dict[str, str] = {"app": app}
     if title:
