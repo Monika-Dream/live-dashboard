@@ -3,18 +3,17 @@ services:
     build: .
     container_name: live_dashboard
     restart: unless-stopped
+    # Config/tokens live in the repo-root .env; inject them straight into the
+    # container instead of repeating every key here. Infra constants (PORT,
+    # STATIC_DIR, DB_PATH) stay literal in `environment` because they pin the
+    # layout inside the container (DB_PATH must point into the /data volume).
+    env_file:
+      - path: .env
+        required: true
     environment:
       - PORT=3000
       - STATIC_DIR=/app/public
       - DB_PATH=/data/live-dashboard.db
-      - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
-      - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
-      - HASH_SECRET=${HASH_SECRET}
-      - DISPLAY_NAME=${DISPLAY_NAME}
-      - SITE_TITLE=${SITE_TITLE}
-      - SITE_DESC=${SITE_DESC}
-      - SITE_FAVICON=${SITE_FAVICON}
-      - EXTERNAL_DASHBOARDS=${EXTERNAL_DASHBOARDS:-}
     volumes:
       - dashboard_data:/data
     networks:
