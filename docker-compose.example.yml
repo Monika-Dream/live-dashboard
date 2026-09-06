@@ -10,11 +10,11 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    env_file:
+      - path: .env
+        required: true
     environment:
       - DB_PATH=/data/live-dashboard.db
-      - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
-      - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
-      - HASH_SECRET=${HASH_SECRET}
     volumes:
       - dashboard_data:/data
     mem_limit: 128m
