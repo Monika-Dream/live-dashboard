@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    快捷设置磁贴图标：与项目启动图标一致的爱心造型。
+    磁贴图标放大到 48dp x 48dp，在快捷设置栏显示更清晰。
+    路径数据从 ic_launcher_foreground.xml 的 108dp viewport 缩放至 48dp。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,17.78
+            C22.22,15.12 16.88,14.22 14.22,18.66
+            C11.56,23.11 24,32.88 24,32.88
+            C24,32.88 36.44,23.11 33.78,18.66
+            C31.11,14.22 25.78,15.12 24,17.78Z" />
+</vector>

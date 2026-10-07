@@ -60,6 +60,8 @@ class DashboardAccessibilityService : AccessibilityService() {
 
         val packageName = snapshotEvent.packageName?.toString()?.trim().orEmpty()
         if (packageName.isBlank()) return
+        if (packageName == applicationContext.packageName) return
+        if (packageName in IGNORED_PACKAGES) return
 
         android.util.Log.i("LiveDash", "[无障碍事件] pkg=$packageName")
 
